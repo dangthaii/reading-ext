@@ -10,10 +10,10 @@
     "package": "plasmo package"
   },
   "dependencies": {
-    "@ai-sdk/google": "^1.0.10",
+    "@ai-sdk/google": "^3.0.8",
     "@floating-ui/react": "^0.27.16",
     "@types/turndown": "^5.0.6",
-    "ai": "^4.0.38",
+    "ai": "^6.0.35",
     "defuddle": "^0.6.6",
     "marked": "^12.0.0",
     "plasmo": "0.90.5",
