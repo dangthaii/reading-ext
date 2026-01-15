@@ -4,6 +4,7 @@ import { streamText } from "ai"
 import { Storage } from "@plasmohq/storage"
 
 import { normalizeApiKey } from "~lib/apiKey"
+import { storage, STORAGE_KEYS } from "~lib/storage"
 import {
   generateExplainPrompt,
   READING_ASSISTANT_SYSTEM_PROMPT
@@ -21,8 +22,12 @@ interface StreamExplanationRequest {
   messages: Message[]
 }
 
-// Initialize storage with local area (same as popup)
-const storage = new Storage({ area: "local" })
+// Watch for changes to keep local cache updated (optional, but good for debugging)
+storage.watch({
+  [STORAGE_KEYS.GOOGLE_API_KEY]: (c) => {
+    console.log("[Background] API Key updated:", c.newValue ? "Yes" : "No")
+  }
+})
 
 // Listen for messages from content script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -45,17 +50,29 @@ async function handleStreamExplanation(
   }
 
   try {
+    // Debug: Check raw storage
+    if (chrome?.storage?.local) {
+      const all = await chrome.storage.local.get(null)
+      console.log("[Background] Raw chrome.storage.local content:", all)
+    }
+
     // Get API key from Plasmo storage
-    let apiKey = normalizeApiKey(await storage.get<string>("googleApiKey"))
+    let apiKey = normalizeApiKey(
+      await storage.get<string>(STORAGE_KEYS.GOOGLE_API_KEY)
+    )
 
     if (!apiKey && chrome?.storage?.local) {
-      const localResult = await chrome.storage.local.get("googleApiKey")
-      apiKey = normalizeApiKey(localResult.googleApiKey)
+      const localResult = await chrome.storage.local.get(
+        STORAGE_KEYS.GOOGLE_API_KEY
+      )
+      apiKey = normalizeApiKey(localResult[STORAGE_KEYS.GOOGLE_API_KEY])
     }
 
     if (!apiKey && chrome?.storage?.sync) {
-      const syncResult = await chrome.storage.sync.get("googleApiKey")
-      apiKey = normalizeApiKey(syncResult.googleApiKey)
+      const syncResult = await chrome.storage.sync.get(
+        STORAGE_KEYS.GOOGLE_API_KEY
+      )
+      apiKey = normalizeApiKey(syncResult[STORAGE_KEYS.GOOGLE_API_KEY])
     }
 
     console.log(
