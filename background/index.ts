@@ -3,6 +3,7 @@ import { streamText } from "ai"
 
 import { Storage } from "@plasmohq/storage"
 
+import { normalizeApiKey } from "~lib/apiKey"
 import {
   generateExplainPrompt,
   READING_ASSISTANT_SYSTEM_PROMPT
@@ -45,7 +46,18 @@ async function handleStreamExplanation(
 
   try {
     // Get API key from Plasmo storage
-    const apiKey = await storage.get<string>("googleApiKey")
+    let apiKey = normalizeApiKey(await storage.get<string>("googleApiKey"))
+
+    if (!apiKey && chrome?.storage?.local) {
+      const localResult = await chrome.storage.local.get("googleApiKey")
+      apiKey = normalizeApiKey(localResult.googleApiKey)
+    }
+
+    if (!apiKey && chrome?.storage?.sync) {
+      const syncResult = await chrome.storage.sync.get("googleApiKey")
+      apiKey = normalizeApiKey(syncResult.googleApiKey)
+    }
+
     console.log(
       "[Background] API key retrieved:",
       apiKey ? "Yes (length: " + apiKey.length + ")" : "No"

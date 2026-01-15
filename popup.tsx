@@ -1,8 +1,9 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 import { Storage } from "@plasmohq/storage"
 import { useStorage } from "@plasmohq/storage/hook"
 
+import { normalizeApiKey } from "~lib/apiKey"
 import "~style.css"
 
 // Use local storage area for consistency
@@ -17,23 +18,60 @@ function IndexPopup() {
   const [isSaved, setIsSaved] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
+  useEffect(() => {
+    const migrateStoredKey = async () => {
+      if (apiKey) return
+
+      if (chrome?.storage?.local) {
+        const localResult = await chrome.storage.local.get("googleApiKey")
+        const normalizedLocal = normalizeApiKey(localResult.googleApiKey)
+        if (normalizedLocal) {
+          await setApiKey(normalizedLocal)
+          return
+        }
+      }
+
+      if (chrome?.storage?.sync) {
+        const syncResult = await chrome.storage.sync.get("googleApiKey")
+        const normalizedSync = normalizeApiKey(syncResult.googleApiKey)
+        if (normalizedSync) {
+          await setApiKey(normalizedSync)
+        }
+      }
+    }
+
+    void migrateStoredKey()
+  }, [apiKey, setApiKey])
+
   const handleSave = async () => {
     if (!inputValue.trim()) {
       alert("Please enter a valid API key")
       return
     }
 
-    console.log("[Popup] Saving API key, length:", inputValue.trim().length)
+    const trimmedKey = inputValue.trim()
+    console.log("[Popup] Saving API key, length:", trimmedKey.length)
     setIsLoading(true)
     try {
-      await setApiKey(inputValue.trim())
+      await setApiKey(trimmedKey)
       console.log("[Popup] API key saved successfully")
 
       // Verify it was saved
-      const savedKey = await storage.get("googleApiKey")
-      console.log("[Popup] Verified saved key length:", savedKey?.length)
+      let savedKey = normalizeApiKey(await storage.get("googleApiKey"))
+      if (!savedKey && chrome?.storage?.local) {
+        const localResult = await chrome.storage.local.get("googleApiKey")
+        savedKey = normalizeApiKey(localResult.googleApiKey)
+      }
+      if (!savedKey && chrome?.storage?.sync) {
+        const syncResult = await chrome.storage.sync.get("googleApiKey")
+        savedKey = normalizeApiKey(syncResult.googleApiKey)
+      }
 
-      setIsSaved(true)
+      console.log("[Popup] Verified saved key length:", savedKey?.length)
+      setIsSaved(Boolean(savedKey))
+      if (!savedKey) {
+        console.error("[Popup] API key not found after saving")
+      }
     } catch (error) {
       console.error("[Popup] Error saving API key:", error)
     }
@@ -44,6 +82,12 @@ function IndexPopup() {
   const handleClear = async () => {
     setIsLoading(true)
     await setApiKey("")
+    if (chrome?.storage?.local) {
+      await chrome.storage.local.remove("googleApiKey")
+    }
+    if (chrome?.storage?.sync) {
+      await chrome.storage.sync.remove("googleApiKey")
+    }
     setInputValue("")
     setIsSaved(false)
     setIsLoading(false)
