@@ -2,7 +2,7 @@
   "name": "reading-ext",
   "displayName": "Reading ext",
   "version": "0.0.1",
-  "description": "A basic Plasmo extension.",
+  "description": "A Chrome extension with AI chat for explaining selected text.",
   "author": "Plasmo Corp. <foss@plasmo.com>",
   "scripts": {
     "dev": "plasmo dev",
@@ -10,9 +10,12 @@
     "package": "plasmo package"
   },
   "dependencies": {
+    "@ai-sdk/google": "^1.0.10",
     "@floating-ui/react": "^0.27.16",
     "@types/turndown": "^5.0.6",
+    "ai": "^4.0.38",
     "defuddle": "^0.6.6",
+    "marked": "^12.0.0",
     "plasmo": "0.90.5",
     "react": "18.2.0",
     "react-dom": "18.2.0",
