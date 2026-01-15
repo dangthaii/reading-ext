@@ -4,7 +4,7 @@ export function normalizeApiKey(value: unknown): string | null {
   const trimmed = value.trim()
   if (!trimmed) return null
 
-  if (trimmed.startsWith("\"") || trimmed.startsWith("{")) {
+  if (trimmed.startsWith('"') || trimmed.startsWith("{")) {
     try {
       const parsed = JSON.parse(trimmed)
       if (typeof parsed === "string") {
