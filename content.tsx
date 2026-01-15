@@ -1,6 +1,14 @@
+import {
+  autoUpdate,
+  flip,
+  inline,
+  offset,
+  shift,
+  useFloating
+} from "@floating-ui/react"
 import cssText from "data-text:~style.css"
 import type { PlasmoCSConfig } from "plasmo"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 
 export const config: PlasmoCSConfig = {
   matches: ["<all_urls>"],
@@ -14,49 +22,57 @@ export const getStyle = () => {
   return style
 }
 
-interface SelectionInfo {
-  text: string
-  x: number
-  y: number
-}
-
 const ReadingExtension = () => {
-  const [selection, setSelection] = useState<SelectionInfo | null>(null)
+  const [selectedText, setSelectedText] = useState<string | null>(null)
+  const [selectionRange, setSelectionRange] = useState<Range | null>(null)
   const [isPanelOpen, setIsPanelOpen] = useState(false)
   const [panelText, setPanelText] = useState("")
+
+  // Create virtual element from selection range
+  const virtualElement = useMemo(() => {
+    if (!selectionRange) return null
+    return {
+      getBoundingClientRect: () => selectionRange.getBoundingClientRect(),
+      getClientRects: () => selectionRange.getClientRects()
+    }
+  }, [selectionRange])
+
+  // Use Floating UI for positioning
+  const { refs, floatingStyles } = useFloating({
+    placement: "top",
+    elements: {
+      reference: virtualElement
+    },
+    middleware: [
+      inline(),
+      offset(10),
+      flip({ fallbackPlacements: ["bottom", "top"] }),
+      shift({ padding: 8 })
+    ],
+    whileElementsMounted: autoUpdate
+  })
 
   useEffect(() => {
     const handleMouseUp = () => {
       setTimeout(() => {
-        const selectedText = window.getSelection()?.toString().trim()
+        const sel = window.getSelection()
+        const text = sel?.toString().trim()
 
-        if (selectedText && selectedText.length > 0) {
-          const sel = window.getSelection()
-          if (sel && sel.rangeCount > 0) {
-            const range = sel.getRangeAt(0)
-            const rect = range.getBoundingClientRect()
-
-            const x = rect.left + rect.width / 2
-            const y = rect.top - 10
-
-            setSelection({
-              text: selectedText,
-              x,
-              y
-            })
-          }
+        if (text && text.length > 0 && sel && sel.rangeCount > 0) {
+          const range = sel.getRangeAt(0).cloneContents()
+          setSelectionRange(sel.getRangeAt(0).cloneRange())
+          setSelectedText(text)
         }
       }, 10)
     }
 
     const handleMouseDown = () => {
-      // Don't hide selection immediately - let click events process first
       setTimeout(() => {
-        // Only hide if panel is not open
         if (!document.querySelector('[data-plasmo-reading-panel="true"]')) {
-          const selectedText = window.getSelection()?.toString().trim()
-          if (!selectedText) {
-            setSelection(null)
+          const text = window.getSelection()?.toString().trim()
+          if (!text) {
+            setSelectedText(null)
+            setSelectionRange(null)
           }
         }
       }, 100)
@@ -64,7 +80,8 @@ const ReadingExtension = () => {
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        setSelection(null)
+        setSelectedText(null)
+        setSelectionRange(null)
         setIsPanelOpen(false)
       }
     }
@@ -80,19 +97,20 @@ const ReadingExtension = () => {
     }
   }, [])
 
-  // Handle icon click - open panel with selected text
+  // Handle icon click
   const handleIconClick = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault()
       e.stopPropagation()
 
-      if (selection) {
-        setPanelText(selection.text)
+      if (selectedText) {
+        setPanelText(selectedText)
         setIsPanelOpen(true)
-        setSelection(null)
+        setSelectedText(null)
+        setSelectionRange(null)
       }
     },
-    [selection]
+    [selectedText]
   )
 
   // Close panel
@@ -104,15 +122,13 @@ const ReadingExtension = () => {
 
   return (
     <>
-      {/* Selection Icon */}
-      {selection && (
+      {/* Selection Icon - positioned by Floating UI */}
+      {selectedText && virtualElement && (
         <div
+          ref={refs.setFloating}
           data-plasmo-reading-icon="true"
           style={{
-            position: "fixed",
-            left: selection.x,
-            top: selection.y,
-            transform: "translate(-50%, -100%)",
+            ...floatingStyles,
             zIndex: 2147483647,
             pointerEvents: "auto"
           }}>
