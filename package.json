@@ -12,6 +12,7 @@
   "dependencies": {
     "@ai-sdk/google": "^3.0.8",
     "@floating-ui/react": "^0.27.16",
+    "@plasmohq/storage": "^1.15.0",
     "@types/turndown": "^5.0.6",
     "ai": "^6.0.35",
     "defuddle": "^0.6.6",

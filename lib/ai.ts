@@ -1,11 +1,3 @@
-import { google } from "@ai-sdk/google"
-import { streamText } from "ai"
-
-import {
-  generateExplainPrompt,
-  READING_ASSISTANT_SYSTEM_PROMPT
-} from "~prompts"
-
 interface Message {
   role: "user" | "assistant"
   content: string
@@ -22,7 +14,7 @@ interface StreamExplanationParams {
 }
 
 /**
- * Stream AI explanation for selected text using Vercel AI SDK
+ * Stream AI explanation for selected text via background script
  */
 export async function streamExplanation(params: StreamExplanationParams) {
   const {
@@ -35,66 +27,46 @@ export async function streamExplanation(params: StreamExplanationParams) {
     onError
   } = params
 
+  console.log("[ContentScript] streamExplanation called", {
+    selectedTextLength: selectedText?.length,
+    pageTitle,
+    messagesCount: messages.length
+  })
+
   try {
-    const isFollowUp = messages.length > 0
-
-    // Build messages array for the AI
-    const aiMessages: Array<{ role: "user" | "assistant"; content: string }> =
-      []
-
-    if (!isFollowUp) {
-      // Initial explanation request
-      const initialPrompt = generateExplainPrompt({
-        selectedText,
-        pageTitle,
-        pageContent,
-        isFollowUp: false
-      })
-
-      aiMessages.push({
-        role: "user",
-        content: initialPrompt
-      })
-    } else {
-      // Add initial context as first message
-      const initialPrompt = generateExplainPrompt({
-        selectedText,
-        pageTitle,
-        pageContent,
-        isFollowUp: false
-      })
-
-      aiMessages.push({
-        role: "user",
-        content: initialPrompt
-      })
-
-      // Add conversation history
-      aiMessages.push(...messages)
+    // Set up message listener for responses from background script
+    const messageListener = (message: any) => {
+      console.log("[ContentScript] Received message:", message.type)
+      if (message.type === "AI_CHUNK") {
+        onChunk(message.data)
+      } else if (message.type === "AI_COMPLETE") {
+        console.log("[ContentScript] AI stream complete")
+        chrome.runtime.onMessage.removeListener(messageListener)
+        onComplete()
+      } else if (message.type === "AI_ERROR") {
+        console.error("[ContentScript] AI error received:", message.data)
+        chrome.runtime.onMessage.removeListener(messageListener)
+        onError(new Error(message.data))
+      }
     }
 
-    // Stream with Vercel AI SDK
-    const result = await streamText({
-      model: google("gemini-3-flash-preview"),
-      system: READING_ASSISTANT_SYSTEM_PROMPT,
-      messages: aiMessages,
-      providerOptions: {
-        google: {
-          thinkingConfig: {
-            thinkingLevel: "minimal"
-          }
-        }
+    chrome.runtime.onMessage.addListener(messageListener)
+    console.log("[ContentScript] Message listener added")
+
+    // Send request to background script
+    console.log("[ContentScript] Sending STREAM_EXPLANATION to background")
+    chrome.runtime.sendMessage({
+      type: "STREAM_EXPLANATION",
+      data: {
+        selectedText,
+        pageTitle,
+        pageContent,
+        messages
       }
     })
-
-    // Process the stream
-    for await (const textPart of result.textStream) {
-      onChunk(textPart)
-    }
-
-    onComplete()
+    console.log("[ContentScript] Message sent to background")
   } catch (error) {
-    console.error("Error streaming explanation:", error)
+    console.error("[ContentScript] Error streaming explanation:", error)
     onError(error as Error)
   }
 }

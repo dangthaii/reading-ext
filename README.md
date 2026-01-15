@@ -1,14 +1,60 @@
-This is a [Plasmo extension](https://docs.plasmo.com/) project bootstrapped with [`plasmo init`](https://www.npmjs.com/package/plasmo).
+# 📖 Reading Extension
 
-## Getting Started
+An AI-powered Chrome extension that helps you understand what you read on the web. Select any text and get instant explanations powered by Google's Gemini AI.
 
-First, run the development server:
+## ✨ Features
+
+- 🤖 **AI-Powered Explanations**: Get instant explanations for any selected text
+- 💬 **Interactive Chat**: Ask follow-up questions about the content
+- 🌐 **Full Page Context**: AI understands the context of the entire page
+- 🎨 **Beautiful UI**: Modern, sleek interface with smooth animations
+- 🔐 **Privacy-First**: Your API key is stored locally and never sent to our servers
+
+## 🚀 Setup
+
+### 1. Install Dependencies
 
 ```bash
-pnpm dev
-# or
+npm install
+```
+
+### 2. Get Your Google AI API Key
+
+1. Go to [Google AI Studio](https://aistudio.google.com/app/apikey)
+2. Sign in with your Google account
+3. Click "Create API Key"
+4. Copy your API key
+
+### 3. Run Development Server
+
+```bash
 npm run dev
 ```
+
+### 4. Load Extension in Chrome
+
+1. Open Chrome and go to `chrome://extensions`
+2. Enable "Developer mode" (top right)
+3. Click "Load unpacked"
+4. Select the `build/chrome-mv3-dev` folder
+
+### 5. Configure API Key
+
+1. Click the extension icon in Chrome toolbar
+2. Paste your Google AI API key in the settings
+3. Click "Save Key"
+
+## 📖 How to Use
+
+1. Navigate to any webpage
+2. Select any text you want to understand
+3. A reading indicator will appear above your selection
+4. Click the indicator to open the AI chat panel
+5. Get instant explanations and ask follow-up questions!
+
+## 🛠️ Development
+
+This is a [Plasmo extension](https://docs.plasmo.com/) project bootstrapped with [`plasmo init`](https://www.npmjs.com/package/plasmo).
 
 Open your browser and load the appropriate development build. For example, if you are developing for the chrome browser, using manifest v3, use: `build/chrome-mv3-dev`.
 
@@ -21,8 +67,6 @@ For further guidance, [visit our Documentation](https://docs.plasmo.com/)
 Run the following:
 
 ```bash
-pnpm build
-# or
 npm run build
 ```
 

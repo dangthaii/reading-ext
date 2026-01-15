@@ -53,23 +53,27 @@ export function ChatPanel({
   }, [messages, streamingContent, scrollToBottom])
 
   // Handle initial explanation
+  // Handle initial explanation
   const handleInitialExplain = useCallback(async () => {
     setIsLoading(true)
     setStreamingContent("")
 
     try {
+      let fullStreamedContent = ""
+
       await streamExplanation({
         selectedText,
         pageTitle,
         pageContent,
         messages: [],
         onChunk: (text) => {
-          setStreamingContent((prev) => prev + text)
+          fullStreamedContent += text
+          setStreamingContent(fullStreamedContent)
         },
         onComplete: () => {
           setMessages((prev) => [
             ...prev,
-            { role: "assistant", content: streamingContent }
+            { role: "assistant", content: fullStreamedContent }
           ])
           setStreamingContent("")
           setIsLoading(false)
@@ -92,7 +96,7 @@ export function ChatPanel({
       console.error("Error initiating explanation:", error)
       setIsLoading(false)
     }
-  }, [selectedText, pageTitle, pageContent, streamingContent])
+  }, [selectedText, pageTitle, pageContent])
 
   // Send initial explanation when panel opens
   useEffect(() => {
