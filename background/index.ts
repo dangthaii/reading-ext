@@ -152,11 +152,22 @@ async function handleStreamExplanation(
     })
     console.log("[Background] streamText initiated, processing stream...")
 
+    // Helper to safely send messages (handles disconnected tabs)
+    const safeSendMessage = (message: object) => {
+      try {
+        chrome.tabs.sendMessage(tabId, message).catch(() => {
+          // Tab disconnected, ignore
+        })
+      } catch {
+        // Tab disconnected, ignore
+      }
+    }
+
     // Send streaming chunks to content script
     let chunkCount = 0
     for await (const textPart of streamResult.textStream) {
       chunkCount++
-      chrome.tabs.sendMessage(tabId, {
+      safeSendMessage({
         type: "AI_CHUNK",
         data: textPart
       })
@@ -164,7 +175,7 @@ async function handleStreamExplanation(
     console.log("[Background] Stream complete, total chunks:", chunkCount)
 
     // Send completion message
-    chrome.tabs.sendMessage(tabId, {
+    safeSendMessage({
       type: "AI_COMPLETE"
     })
     console.log("[Background] AI_COMPLETE sent")
@@ -178,10 +189,18 @@ async function handleStreamExplanation(
 
     // Send error to content script
     if (tabId) {
-      chrome.tabs.sendMessage(tabId, {
-        type: "AI_ERROR",
-        data: error instanceof Error ? error.message : "Unknown error"
-      })
+      try {
+        chrome.tabs
+          .sendMessage(tabId, {
+            type: "AI_ERROR",
+            data: error instanceof Error ? error.message : "Unknown error"
+          })
+          .catch(() => {
+            // Tab disconnected, ignore
+          })
+      } catch {
+        // Tab disconnected, ignore
+      }
     }
   }
 }
