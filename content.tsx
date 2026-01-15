@@ -285,10 +285,10 @@ ${pageContext.content}
           <button
             onClick={handleIconClick}
             onMouseDown={(e) => e.stopPropagation()}
-            className="w-9 h-9 bg-gradient-to-br from-violet-500 to-purple-600 rounded-full 
-                       flex items-center justify-center shadow-lg shadow-purple-500/40 
+            className="w-9 h-9 bg-gradient-to-br from-orange-400 to-red-500 rounded-full 
+                       flex items-center justify-center shadow-lg shadow-orange-500/40 
                        cursor-pointer border-none outline-none pointer-events-auto
-                       hover:scale-110 hover:shadow-xl hover:shadow-purple-500/50 transition-all duration-200"
+                       hover:scale-110 hover:shadow-xl hover:shadow-orange-500/50 transition-all duration-200"
             title="Chat with AI about this text">
             <svg
               className="w-5 h-5 fill-white pointer-events-none"
@@ -305,7 +305,7 @@ ${pageContext.content}
         <div
           data-plasmo-reading-panel="true"
           className="fixed top-0 right-0 h-screen w-[480px] z-[2147483647] 
-                     bg-slate-900 shadow-2xl shadow-black/50
+                     bg-white shadow-2xl shadow-black/10
                      flex flex-col font-sans pointer-events-auto">
           {/* Panel Content - AI Chat */}
           <ChatPanel

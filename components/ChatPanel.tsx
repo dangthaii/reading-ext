@@ -157,57 +157,44 @@ export function ChatPanel({
   }, [input, isLoading, messages, selectedText, pageTitle, pageContent])
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700/50 bg-slate-800/50">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-purple-600 rounded-lg flex items-center justify-center">
-            <svg
-              className="w-4 h-4 fill-white"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg">
-              <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z" />
-            </svg>
-          </div>
-          <span className="text-white font-medium text-sm">AI Assistant</span>
-        </div>
-        <button
-          onClick={onClose}
-          onMouseDown={(e) => e.stopPropagation()}
-          className="w-8 h-8 flex items-center justify-center rounded-lg 
-                     text-slate-400 hover:text-white hover:bg-slate-700/50
-                     transition-colors cursor-pointer border-none bg-transparent">
-          <svg
-            className="w-5 h-5 pointer-events-none"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
+    <div className="flex flex-col h-full bg-white relative">
+      <button
+        onClick={onClose}
+        onMouseDown={(e) => e.stopPropagation()}
+        className="absolute top-3 right-3 z-50 w-8 h-8 flex items-center justify-center rounded-full
+                   text-slate-400 hover:text-slate-600 hover:bg-slate-100/80
+                   transition-all cursor-pointer border-none ">
+        <svg
+          className="w-5 h-5 pointer-events-none"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M6 18L18 6M6 6l12 12"
+          />
+        </svg>
+      </button>
+
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col overflow-hidden relative isolate">
+        <MessagesArea
+          messagesContainerRef={messagesContainerRef}
+          selectedText={selectedText}
+          messages={messages}
+          streamingContent={streamingContent}
+          isLoading={isLoading}
+        />
+
+        <MessageInput
+          value={input}
+          onChange={setInput}
+          onSend={handleSendMessage}
+          disabled={isLoading}
+        />
       </div>
-
-      {/* Messages Area */}
-      <MessagesArea
-        messagesContainerRef={messagesContainerRef}
-        selectedText={selectedText}
-        messages={messages}
-        streamingContent={streamingContent}
-        isLoading={isLoading}
-      />
-
-      {/* Input Area */}
-      <MessageInput
-        value={input}
-        onChange={setInput}
-        onSend={handleSendMessage}
-        disabled={isLoading}
-      />
     </div>
   )
 }

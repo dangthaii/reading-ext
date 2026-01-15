@@ -24,14 +24,14 @@ export const MessagesArea = memo(function MessagesArea({
   return (
     <div
       ref={messagesContainerRef}
-      className="flex-1 overflow-y-auto p-4 space-y-4">
+      className="flex-1 overflow-y-auto p-4 space-y-4 bg-white">
       {/* Selected Text Info */}
       <div>
-        <div className="text-[11px] text-slate-500 uppercase tracking-wider mb-2">
+        <div className="text-[11px] text-slate-500 uppercase tracking-wider mb-2 font-semibold">
           Selected Text
         </div>
-        <div className="p-4 bg-slate-800/50 rounded-xl border border-slate-700/50">
-          <p className="text-slate-300 text-sm leading-relaxed m-0 whitespace-pre-wrap italic">
+        <div className="p-4 bg-orange-50 rounded-xl border border-orange-100">
+          <p className="text-slate-700 text-sm leading-relaxed m-0 whitespace-pre-wrap italic">
             "{selectedText}"
           </p>
         </div>
@@ -47,14 +47,14 @@ export const MessagesArea = memo(function MessagesArea({
             message.role === "user" ? "justify-end" : "justify-start"
           }`}>
           {message.role === "user" ? (
-            <div className="max-w-[85%] rounded-lg p-3 bg-gradient-to-r from-violet-600 to-purple-600 text-white">
+            <div className="max-w-[85%] rounded-lg p-3 bg-gradient-to-r from-orange-400 to-red-500 text-white shadow-sm shadow-orange-500/20">
               <div className="whitespace-pre-wrap text-sm">
                 {message.content}
               </div>
             </div>
           ) : (
             <div
-              className="prose prose-invert prose-sm max-w-none w-full bg-slate-800/30 rounded-xl p-4 border border-slate-700/30"
+              className="prose prose-slate prose-sm max-w-none w-full bg-white rounded-xl p-4   shadow-sm"
               dangerouslySetInnerHTML={{
                 __html: marked(message.content) as string
               }}
@@ -70,7 +70,7 @@ export const MessagesArea = memo(function MessagesArea({
           data-message="true"
           data-role="assistant">
           <div
-            className="prose prose-invert prose-sm max-w-none w-full bg-slate-800/30 rounded-xl p-4 border border-slate-700/30"
+            className="prose prose-slate prose-sm max-w-none w-full bg-white rounded-xl p-4   shadow-sm"
             dangerouslySetInnerHTML={{
               __html: marked(streamingContent) as string
             }}
@@ -81,14 +81,14 @@ export const MessagesArea = memo(function MessagesArea({
       {/* Loading Indicator */}
       {isLoading && !streamingContent && (
         <div className="flex justify-start">
-          <div className="bg-slate-800/50 rounded-lg p-3 flex items-center gap-1">
-            <span className="w-2 h-2 bg-violet-400 rounded-full animate-bounce" />
+          <div className="bg-slate-50 rounded-lg p-3 flex items-center gap-1  ">
+            <span className="w-2 h-2 bg-orange-400 rounded-full animate-bounce" />
             <span
-              className="w-2 h-2 bg-violet-400 rounded-full animate-bounce"
+              className="w-2 h-2 bg-orange-400 rounded-full animate-bounce"
               style={{ animationDelay: "0.1s" }}
             />
             <span
-              className="w-2 h-2 bg-violet-400 rounded-full animate-bounce"
+              className="w-2 h-2 bg-orange-400 rounded-full animate-bounce"
               style={{ animationDelay: "0.2s" }}
             />
           </div>
