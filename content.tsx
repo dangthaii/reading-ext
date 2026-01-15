@@ -7,10 +7,11 @@ import {
   useFloating
 } from "@floating-ui/react"
 import cssText from "data-text:~style.css"
-import { Defuddle } from "defuddle"
+import Defuddle from "defuddle"
 import type { PlasmoCSConfig } from "plasmo"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import TurndownService from "turndown"
+import { gfm } from "turndown-plugin-gfm"
 
 export const config: PlasmoCSConfig = {
   matches: ["<all_urls>"],
@@ -27,7 +28,52 @@ export const getStyle = () => {
 // Initialize Turndown for HTML to Markdown conversion
 const turndownService = new TurndownService({
   headingStyle: "atx",
-  codeBlockStyle: "fenced"
+  codeBlockStyle: "fenced",
+  bulletListMarker: "-",
+  emDelimiter: "*",
+  strongDelimiter: "**",
+  linkStyle: "inlined",
+  hr: "---"
+})
+
+// Use GFM plugin for tables, strikethrough, and task lists
+turndownService.use(gfm)
+
+// Remove script and style tags
+turndownService.remove(["script", "style", "noscript", "iframe"])
+
+// Custom rule for preserving code language in fenced code blocks
+turndownService.addRule("fencedCodeBlock", {
+  filter: function (node, options) {
+    return (
+      options.codeBlockStyle === "fenced" &&
+      node.nodeName === "PRE" &&
+      node.firstChild &&
+      node.firstChild.nodeName === "CODE"
+    )
+  },
+  replacement: function (content, node, options) {
+    const codeNode = node.firstChild as HTMLElement
+    const className = codeNode.getAttribute("class") || ""
+    const language = (className.match(/language-(\S+)/) || [null, ""])[1]
+    const code = codeNode.textContent || ""
+
+    return "\n\n```" + language + "\n" + code.replace(/\n$/, "") + "\n```\n\n"
+  }
+})
+
+// Custom rule for better image handling
+turndownService.addRule("images", {
+  filter: "img",
+  replacement: function (content, node) {
+    const element = node as HTMLImageElement
+    const alt = element.alt || ""
+    const src = element.src || ""
+    const title = element.title ? ` "${element.title}"` : ""
+
+    if (!src) return ""
+    return `![${alt}](${src}${title})`
+  }
 })
 
 interface PageContext {
