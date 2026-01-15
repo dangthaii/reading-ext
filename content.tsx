@@ -7,8 +7,10 @@ import {
   useFloating
 } from "@floating-ui/react"
 import cssText from "data-text:~style.css"
+import { Defuddle } from "defuddle"
 import type { PlasmoCSConfig } from "plasmo"
 import { useCallback, useEffect, useMemo, useState } from "react"
+import TurndownService from "turndown"
 
 export const config: PlasmoCSConfig = {
   matches: ["<all_urls>"],
@@ -22,11 +24,30 @@ export const getStyle = () => {
   return style
 }
 
+// Initialize Turndown for HTML to Markdown conversion
+const turndownService = new TurndownService({
+  headingStyle: "atx",
+  codeBlockStyle: "fenced"
+})
+
+interface PageContext {
+  title: string
+  author: string | null
+  description: string | null
+  content: string // Markdown content
+  htmlContent: string // Original HTML
+  wordCount: number
+  url: string
+}
+
 const ReadingExtension = () => {
   const [selectedText, setSelectedText] = useState<string | null>(null)
   const [selectionRange, setSelectionRange] = useState<Range | null>(null)
   const [isPanelOpen, setIsPanelOpen] = useState(false)
   const [panelText, setPanelText] = useState("")
+  const [pageContext, setPageContext] = useState<PageContext | null>(null)
+  const [isLoadingContext, setIsLoadingContext] = useState(false)
+  const [copySuccess, setCopySuccess] = useState(false)
 
   // Create virtual element from selection range
   const virtualElement = useMemo(() => {
@@ -51,6 +72,87 @@ const ReadingExtension = () => {
     ],
     whileElementsMounted: autoUpdate
   })
+
+  // Parse page content with Defuddle
+  const parsePageContent = useCallback(() => {
+    try {
+      setIsLoadingContext(true)
+
+      // Clone document to avoid modifying original
+      const clonedDoc = document.cloneNode(true) as Document
+
+      // Parse with Defuddle
+      const defuddle = new Defuddle(clonedDoc)
+      const result = defuddle.parse()
+
+      // Convert HTML to Markdown
+      const htmlContent = result.content || ""
+      const markdownContent = htmlContent
+        ? turndownService.turndown(htmlContent)
+        : ""
+
+      // Calculate word count from markdown
+      const wordCount = markdownContent
+        ? markdownContent.split(/\s+/).filter(Boolean).length
+        : 0
+
+      setPageContext({
+        title: result.title || document.title || "Untitled",
+        author: result.author || null,
+        description: result.description || null,
+        content: markdownContent,
+        htmlContent,
+        wordCount,
+        url: window.location.href
+      })
+    } catch (error) {
+      console.error("Error parsing page:", error)
+      // Fallback: just get text content
+      const fallbackContent = document.body.innerText
+      setPageContext({
+        title: document.title || "Untitled",
+        author: null,
+        description: null,
+        content: fallbackContent,
+        htmlContent: "",
+        wordCount: fallbackContent.split(/\s+/).filter(Boolean).length,
+        url: window.location.href
+      })
+    } finally {
+      setIsLoadingContext(false)
+    }
+  }, [])
+
+  // Copy content to clipboard
+  const handleCopyContent = useCallback(async () => {
+    if (!pageContext) return
+
+    const fullContent = `# ${pageContext.title}
+
+${pageContext.author ? `**Author:** ${pageContext.author}\n\n` : ""}${pageContext.description ? `> ${pageContext.description}\n\n` : ""}**URL:** ${pageContext.url}
+**Words:** ${pageContext.wordCount.toLocaleString()}
+
+---
+
+## Selected Text
+
+${panelText}
+
+---
+
+## Full Page Content
+
+${pageContext.content}
+`
+
+    try {
+      await navigator.clipboard.writeText(fullContent)
+      setCopySuccess(true)
+      setTimeout(() => setCopySuccess(false), 2000)
+    } catch (err) {
+      console.error("Failed to copy:", err)
+    }
+  }, [pageContext, panelText])
 
   useEffect(() => {
     const handleMouseUp = () => {
@@ -107,9 +209,12 @@ const ReadingExtension = () => {
         setIsPanelOpen(true)
         setSelectedText(null)
         setSelectionRange(null)
+
+        // Parse page content when opening panel
+        parsePageContent()
       }
     },
-    [selectedText]
+    [selectedText, parsePageContent]
   )
 
   // Close panel
@@ -117,6 +222,7 @@ const ReadingExtension = () => {
     e.preventDefault()
     e.stopPropagation()
     setIsPanelOpen(false)
+    setPageContext(null)
   }, [])
 
   return (
@@ -150,7 +256,7 @@ const ReadingExtension = () => {
       {isPanelOpen && (
         <div
           data-plasmo-reading-panel="true"
-          className="fixed top-0 right-0 h-screen w-96 z-[2147483647] 
+          className="fixed top-0 right-0 h-screen w-[480px] z-[2147483647] 
                      bg-slate-900 shadow-2xl shadow-black/50
                      flex flex-col font-sans pointer-events-auto">
           {/* Panel Header */}
@@ -168,25 +274,40 @@ const ReadingExtension = () => {
                 AI Assistant
               </span>
             </div>
-            <button
-              onClick={handleClosePanel}
-              onMouseDown={(e) => e.stopPropagation()}
-              className="w-8 h-8 flex items-center justify-center rounded-lg 
-                         text-slate-400 hover:text-white hover:bg-slate-700/50
-                         transition-colors cursor-pointer border-none bg-transparent">
-              <svg
-                className="w-5 h-5 pointer-events-none"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
+            <div className="flex items-center gap-2">
+              {/* Copy Button */}
+              <button
+                onClick={handleCopyContent}
+                onMouseDown={(e) => e.stopPropagation()}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer border-none
+                           ${
+                             copySuccess
+                               ? "bg-green-500/20 text-green-400"
+                               : "bg-slate-700/50 text-slate-300 hover:bg-slate-700 hover:text-white"
+                           }`}>
+                {copySuccess ? "✓ Copied!" : "Copy All"}
+              </button>
+              {/* Close Button */}
+              <button
+                onClick={handleClosePanel}
+                onMouseDown={(e) => e.stopPropagation()}
+                className="w-8 h-8 flex items-center justify-center rounded-lg 
+                           text-slate-400 hover:text-white hover:bg-slate-700/50
+                           transition-colors cursor-pointer border-none bg-transparent">
+                <svg
+                  className="w-5 h-5 pointer-events-none"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
           </div>
 
           {/* Panel Content */}
@@ -200,6 +321,84 @@ const ReadingExtension = () => {
                 <p className="text-slate-300 text-sm leading-relaxed m-0 whitespace-pre-wrap">
                   {panelText}
                 </p>
+              </div>
+            </div>
+
+            {/* Page Context Card */}
+            <div className="mb-4">
+              <div className="text-[11px] text-slate-500 uppercase tracking-wider mb-2">
+                Page Context (Markdown)
+              </div>
+              <div className="p-4 bg-slate-800/50 rounded-xl border border-slate-700/50">
+                {isLoadingContext ? (
+                  <div className="flex items-center justify-center py-4">
+                    <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                    <span className="ml-2 text-slate-400 text-sm">
+                      Parsing page...
+                    </span>
+                  </div>
+                ) : pageContext ? (
+                  <div className="space-y-3">
+                    {/* Title */}
+                    <div>
+                      <div className="text-[10px] text-slate-600 uppercase mb-1">
+                        Title
+                      </div>
+                      <p className="text-slate-300 text-sm m-0 font-medium">
+                        {pageContext.title}
+                      </p>
+                    </div>
+
+                    {/* Author */}
+                    {pageContext.author && (
+                      <div>
+                        <div className="text-[10px] text-slate-600 uppercase mb-1">
+                          Author
+                        </div>
+                        <p className="text-slate-400 text-sm m-0">
+                          {pageContext.author}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Stats */}
+                    <div className="flex gap-4 pt-2 border-t border-slate-700/50">
+                      <div>
+                        <div className="text-[10px] text-slate-600 uppercase mb-1">
+                          Words
+                        </div>
+                        <p className="text-violet-400 text-sm m-0 font-medium">
+                          {pageContext.wordCount.toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[10px] text-slate-600 uppercase mb-1">
+                          URL
+                        </div>
+                        <p className="text-slate-500 text-xs m-0 truncate">
+                          {pageContext.url}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Full Markdown Content */}
+                    <div className="pt-2 border-t border-slate-700/50">
+                      <div className="text-[10px] text-slate-600 uppercase mb-2">
+                        Full Content (Markdown)
+                      </div>
+                      <pre
+                        className="text-slate-400 text-xs m-0 leading-relaxed 
+                                      max-h-[400px] overflow-y-auto p-3 bg-slate-900/50 rounded-lg
+                                      whitespace-pre-wrap break-words font-mono">
+                        {pageContext.content}
+                      </pre>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-slate-500 text-sm text-center m-0">
+                    No context available
+                  </p>
+                )}
               </div>
             </div>
 
