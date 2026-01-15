@@ -1,6 +1,6 @@
 import cssText from "data-text:~style.css"
 import type { PlasmoCSConfig } from "plasmo"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 
 export const config: PlasmoCSConfig = {
   matches: ["<all_urls>"],
@@ -20,8 +20,10 @@ interface SelectionInfo {
   y: number
 }
 
-const SelectionIndicator = () => {
+const ReadingExtension = () => {
   const [selection, setSelection] = useState<SelectionInfo | null>(null)
+  const [isPanelOpen, setIsPanelOpen] = useState(false)
+  const [panelText, setPanelText] = useState("")
 
   useEffect(() => {
     const handleMouseUp = () => {
@@ -42,85 +44,302 @@ const SelectionIndicator = () => {
               x,
               y
             })
-
-            console.log("📖 Selected text:", selectedText)
           }
         }
       }, 10)
     }
 
-    const handleMouseDown = (e: MouseEvent) => {
-      const target = e.target as HTMLElement
-      // Check if clicking outside our indicator
-      if (!target.closest("[data-reading-indicator]")) {
-        setSelection(null)
-      }
-    }
-
-    const handleScroll = () => {
-      setSelection(null)
+    const handleMouseDown = () => {
+      // Don't hide selection immediately - let click events process first
+      setTimeout(() => {
+        // Only hide if panel is not open
+        if (!document.querySelector('[data-plasmo-reading-panel="true"]')) {
+          const selectedText = window.getSelection()?.toString().trim()
+          if (!selectedText) {
+            setSelection(null)
+          }
+        }
+      }, 100)
     }
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setSelection(null)
+        setIsPanelOpen(false)
       }
     }
 
     document.addEventListener("mouseup", handleMouseUp)
     document.addEventListener("mousedown", handleMouseDown)
     document.addEventListener("keydown", handleKeyDown)
-    window.addEventListener("scroll", handleScroll, true)
 
     return () => {
       document.removeEventListener("mouseup", handleMouseUp)
       document.removeEventListener("mousedown", handleMouseDown)
       document.removeEventListener("keydown", handleKeyDown)
-      window.removeEventListener("scroll", handleScroll, true)
     }
   }, [])
 
-  if (!selection) return null
+  // Handle icon click - open panel with selected text
+  const handleIconClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
 
-  const previewText =
-    selection.text.length > 50
-      ? selection.text.substring(0, 50) + "..."
-      : selection.text
+      if (selection) {
+        setPanelText(selection.text)
+        setIsPanelOpen(true)
+        setSelection(null)
+      }
+    },
+    [selection]
+  )
+
+  // Close panel
+  const handleClosePanel = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsPanelOpen(false)
+  }, [])
 
   return (
-    <div
-      data-reading-indicator="true"
-      className="fixed z-[2147483647] flex flex-col items-center gap-2 animate-fade-in"
-      style={{
-        left: selection.x,
-        top: selection.y,
-        transform: "translate(-50%, -100%)"
-      }}>
-      {/* Icon Button */}
-      <div
-        className="w-9 h-9 bg-gradient-to-br from-violet-500 to-purple-600 rounded-full 
-                   flex items-center justify-center shadow-lg shadow-purple-500/40 
-                   cursor-pointer transition-all duration-200 
-                   hover:scale-110 hover:shadow-xl hover:shadow-purple-500/50"
-        title="Text selected!">
-        <svg
-          className="w-5 h-5 fill-white"
-          viewBox="0 0 24 24"
-          xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" />
-        </svg>
-      </div>
+    <>
+      {/* Selection Icon */}
+      {selection && (
+        <div
+          data-plasmo-reading-icon="true"
+          style={{
+            position: "fixed",
+            left: selection.x,
+            top: selection.y,
+            transform: "translate(-50%, -100%)",
+            zIndex: 2147483647,
+            pointerEvents: "auto"
+          }}>
+          <button
+            onClick={handleIconClick}
+            onMouseDown={(e) => e.stopPropagation()}
+            style={{
+              width: "36px",
+              height: "36px",
+              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+              borderRadius: "50%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 4px 15px rgba(102, 126, 234, 0.4)",
+              cursor: "pointer",
+              border: "none",
+              outline: "none",
+              pointerEvents: "auto"
+            }}
+            title="Chat with AI about this text">
+            <svg
+              style={{
+                width: "20px",
+                height: "20px",
+                fill: "white",
+                pointerEvents: "none"
+              }}
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" />
+            </svg>
+          </button>
+        </div>
+      )}
 
-      {/* Text Preview */}
-      <div
-        className="max-w-xs px-3 py-2 bg-gray-900/90 text-white text-xs leading-relaxed 
-                   rounded-lg backdrop-blur-md shadow-xl shadow-black/30 
-                   whitespace-nowrap overflow-hidden text-ellipsis
-                   font-sans">
-        {previewText}
-      </div>
-    </div>
+      {/* Side Panel */}
+      {isPanelOpen && (
+        <div
+          data-plasmo-reading-panel="true"
+          style={{
+            position: "fixed",
+            top: 0,
+            right: 0,
+            height: "100vh",
+            width: "384px",
+            zIndex: 2147483647,
+            background: "#0f172a",
+            boxShadow: "-4px 0 30px rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            flexDirection: "column",
+            fontFamily:
+              "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+            pointerEvents: "auto"
+          }}>
+          {/* Panel Header */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "12px 16px",
+              borderBottom: "1px solid rgba(51, 65, 85, 0.5)",
+              background: "rgba(30, 41, 59, 0.5)"
+            }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <div
+                style={{
+                  width: "32px",
+                  height: "32px",
+                  background:
+                    "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                  borderRadius: "8px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center"
+                }}>
+                <svg
+                  style={{ width: "16px", height: "16px", fill: "white" }}
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg">
+                  <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z" />
+                </svg>
+              </div>
+              <span
+                style={{ color: "white", fontWeight: 500, fontSize: "14px" }}>
+                AI Assistant
+              </span>
+            </div>
+            <button
+              onClick={handleClosePanel}
+              onMouseDown={(e) => e.stopPropagation()}
+              style={{
+                width: "32px",
+                height: "32px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: "8px",
+                color: "#94a3b8",
+                background: "transparent",
+                border: "none",
+                cursor: "pointer"
+              }}>
+              <svg
+                style={{ width: "20px", height: "20px", pointerEvents: "none" }}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+
+          {/* Panel Content */}
+          <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
+            {/* Selected Text Card */}
+            <div style={{ marginBottom: "16px" }}>
+              <div
+                style={{
+                  fontSize: "11px",
+                  color: "#64748b",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                  marginBottom: "8px"
+                }}>
+                Selected Text
+              </div>
+              <div
+                style={{
+                  padding: "16px",
+                  background: "rgba(30, 41, 59, 0.5)",
+                  borderRadius: "12px",
+                  border: "1px solid rgba(51, 65, 85, 0.5)"
+                }}>
+                <p
+                  style={{
+                    color: "#cbd5e1",
+                    fontSize: "14px",
+                    lineHeight: 1.6,
+                    margin: 0,
+                    whiteSpace: "pre-wrap"
+                  }}>
+                  {panelText}
+                </p>
+              </div>
+            </div>
+
+            {/* AI Response Placeholder */}
+            <div>
+              <div
+                style={{
+                  fontSize: "11px",
+                  color: "#64748b",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                  marginBottom: "8px"
+                }}>
+                AI Response
+              </div>
+              <div
+                style={{
+                  padding: "16px",
+                  background: "rgba(30, 41, 59, 0.3)",
+                  borderRadius: "12px",
+                  border: "1px dashed rgba(51, 65, 85, 0.5)"
+                }}>
+                <p
+                  style={{
+                    color: "#64748b",
+                    fontSize: "14px",
+                    textAlign: "center",
+                    margin: 0
+                  }}>
+                  AI chat coming soon...
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Panel Footer - Chat Input */}
+          <div
+            style={{
+              padding: "16px",
+              borderTop: "1px solid rgba(51, 65, 85, 0.5)",
+              background: "rgba(30, 41, 59, 0.3)"
+            }}>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <input
+                type="text"
+                placeholder="Ask AI about this text..."
+                style={{
+                  flex: 1,
+                  padding: "10px 16px",
+                  background: "#1e293b",
+                  border: "1px solid #334155",
+                  borderRadius: "12px",
+                  color: "white",
+                  fontSize: "14px",
+                  outline: "none"
+                }}
+              />
+              <button
+                style={{
+                  padding: "10px 20px",
+                  background:
+                    "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                  borderRadius: "12px",
+                  color: "white",
+                  fontSize: "14px",
+                  fontWeight: 500,
+                  border: "none",
+                  cursor: "pointer"
+                }}>
+                Send
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 
-export default SelectionIndicator
+export default ReadingExtension
