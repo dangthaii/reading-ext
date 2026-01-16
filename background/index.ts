@@ -29,10 +29,8 @@ storage.watch({
   }
 })
 
-// Configure side panel behavior - open on action click
-chrome.sidePanel
-  .setPanelBehavior({ openPanelOnActionClick: true })
-  .catch((error) => console.error("Error setting panel behavior:", error))
+// Note: We don't set openPanelOnActionClick: true because we want the popup to open on action click
+// The side panel will only open programmatically when user clicks the floating icon after selecting text
 
 // Store panel data to forward to side panel
 let pendingPanelData: {
@@ -41,10 +39,13 @@ let pendingPanelData: {
   pageContent: string
 } | null = null
 
-// Listen for messages from content script
+// Listen for messages from content script or side panel
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === "STREAM_EXPLANATION") {
-    handleStreamExplanation(request.data, sender.tab?.id)
+    // If sender has a tab, it's from content script; otherwise it's from side panel
+    const tabId = sender.tab?.id
+    const isFromSidePanel = !tabId
+    handleStreamExplanation(request.data, tabId, isFromSidePanel)
     // Return true to indicate we'll respond asynchronously
     return true
   }
@@ -84,12 +85,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 async function handleStreamExplanation(
   data: StreamExplanationRequest,
-  tabId?: number
+  tabId?: number,
+  isFromSidePanel: boolean = false
 ) {
-  console.log("[Background] handleStreamExplanation called", { tabId, data })
+  console.log("[Background] handleStreamExplanation called", {
+    tabId,
+    isFromSidePanel,
+    data
+  })
 
-  if (!tabId) {
-    console.error("[Background] No tab ID provided")
+  // If not from side panel and no tabId, we can't send response
+  if (!isFromSidePanel && !tabId) {
+    console.error("[Background] No tab ID provided and not from side panel")
     return
   }
 
@@ -196,14 +203,22 @@ async function handleStreamExplanation(
     })
     console.log("[Background] streamText initiated, processing stream...")
 
-    // Helper to safely send messages (handles disconnected tabs)
+    // Helper to safely send messages (handles disconnected tabs/panels)
     const safeSendMessage = (message: object) => {
       try {
-        chrome.tabs.sendMessage(tabId, message).catch(() => {
-          // Tab disconnected, ignore
-        })
+        if (isFromSidePanel) {
+          // Send to side panel via runtime message
+          chrome.runtime.sendMessage(message).catch(() => {
+            // Panel disconnected, ignore
+          })
+        } else if (tabId) {
+          // Send to content script via tabs message
+          chrome.tabs.sendMessage(tabId, message).catch(() => {
+            // Tab disconnected, ignore
+          })
+        }
       } catch {
-        // Tab disconnected, ignore
+        // Disconnected, ignore
       }
     }
 
@@ -231,20 +246,20 @@ async function handleStreamExplanation(
       stack: error instanceof Error ? error.stack : undefined
     })
 
-    // Send error to content script
-    if (tabId) {
-      try {
-        chrome.tabs
-          .sendMessage(tabId, {
-            type: "AI_ERROR",
-            data: error instanceof Error ? error.message : "Unknown error"
-          })
-          .catch(() => {
-            // Tab disconnected, ignore
-          })
-      } catch {
-        // Tab disconnected, ignore
+    // Send error to content script or side panel
+    const errorMessage = {
+      type: "AI_ERROR",
+      data: error instanceof Error ? error.message : "Unknown error"
+    }
+
+    try {
+      if (isFromSidePanel) {
+        chrome.runtime.sendMessage(errorMessage).catch(() => {})
+      } else if (tabId) {
+        chrome.tabs.sendMessage(tabId, errorMessage).catch(() => {})
       }
+    } catch {
+      // Disconnected, ignore
     }
   }
 }
