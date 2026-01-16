@@ -11,6 +11,10 @@ module.exports = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["Lora", "serif"],
+        serif: ["Lora", "serif"]
+      },
       animation: {
         "fade-in": "fadeIn 0.2s ease-out"
       },
