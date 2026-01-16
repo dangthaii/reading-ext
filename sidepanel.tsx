@@ -148,27 +148,44 @@ function SidePanel() {
     (type: "explain" | "quote", quotedText: string) => {
       if (!panelData) return
 
-      const activeTab = tabs.find((t) => t.id === activeTabId)
-      const newTab: TabData = {
-        id: `tab-${Date.now()}`,
-        type,
-        label: type === "explain" ? "Explain" : "Quote",
-        context: {
-          selectedText: quotedText,
-          pageTitle: panelData.pageTitle,
-          pageContent: panelData.pageContent,
-          parentMessages: activeTab?.messages || []
-        },
-        quotedText,
-        messages: [],
-        isInitialized: false,
-        scrollPosition: 0
-      }
+      // Use setTabs with functional update to get latest state
+      setTabs((prevTabs) => {
+        const currentActiveTab = prevTabs.find((t) => t.id === activeTabId)
+        const parentMessages = currentActiveTab?.messages || []
 
-      setTabs((prev) => [...prev, newTab])
-      setActiveTabId(newTab.id)
+        console.log("[SidePanel] Creating new tab with parentMessages:", {
+          type,
+          quotedText: quotedText.slice(0, 50),
+          parentMessagesCount: parentMessages.length,
+          parentMessages: parentMessages.map((m) => ({
+            role: m.role,
+            contentPreview: m.content.slice(0, 50)
+          }))
+        })
+
+        const newTab: TabData = {
+          id: `tab-${Date.now()}`,
+          type,
+          label: type === "explain" ? "Explain" : "Quote",
+          context: {
+            selectedText: quotedText,
+            pageTitle: panelData.pageTitle,
+            pageContent: panelData.pageContent,
+            parentMessages: parentMessages
+          },
+          quotedText,
+          messages: [],
+          isInitialized: false,
+          scrollPosition: 0
+        }
+
+        // Schedule activeTabId update after state update
+        setTimeout(() => setActiveTabId(newTab.id), 0)
+
+        return [...prevTabs, newTab]
+      })
     },
-    [panelData, tabs, activeTabId]
+    [panelData, activeTabId]
   )
 
   // Close a tab
@@ -206,6 +223,21 @@ function SidePanel() {
 
   const activeTab = tabs.find((t) => t.id === activeTabId)
 
+  // Build page content with parent conversation context
+  const getPageContentWithContext = (tab: TabData) => {
+    const parentMessages = tab.context.parentMessages
+    if (parentMessages.length === 0) {
+      return tab.context.pageContent
+    }
+
+    // Append parent conversation to page content for AI context
+    const conversationContext = parentMessages
+      .map((m) => `${m.role === "user" ? "User" : "AI"}: ${m.content}`)
+      .join("\n\n")
+
+    return `${tab.context.pageContent}\n\n--- PREVIOUS CONVERSATION CONTEXT ---\n${conversationContext}`
+  }
+
   return (
     <div className="flex flex-col h-screen bg-white">
       {panelData && activeTab ? (
@@ -217,7 +249,7 @@ function SidePanel() {
               tabId={activeTab.id}
               selectedText={activeTab.context.selectedText}
               pageTitle={activeTab.context.pageTitle}
-              pageContent={activeTab.context.pageContent}
+              pageContent={getPageContentWithContext(activeTab)}
               quotedText={activeTab.quotedText}
               mode={activeTab.type === "quote" ? "quote" : "explain"}
               onExplainSelection={handleExplainSelection}

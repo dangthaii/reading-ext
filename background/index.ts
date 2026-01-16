@@ -7,6 +7,8 @@ import { normalizeApiKey } from "~lib/apiKey"
 import { storage, STORAGE_KEYS } from "~lib/storage"
 import {
   generateExplainPrompt,
+  generateFollowUpPrompt,
+  generateQuotePrompt,
   READING_ASSISTANT_SYSTEM_PROMPT
 } from "~prompts"
 
@@ -20,6 +22,9 @@ interface StreamExplanationRequest {
   pageTitle: string
   pageContent: string
   messages: Message[]
+  mode?: "explain" | "quote"
+  quotedText?: string
+  inlineQuote?: string
 }
 
 // Watch for changes to keep local cache updated (optional, but good for debugging)
@@ -91,7 +96,9 @@ async function handleStreamExplanation(
   console.log("[Background] handleStreamExplanation called", {
     tabId,
     isFromSidePanel,
-    data
+    mode: data.mode,
+    hasQuotedText: !!data.quotedText,
+    messagesCount: data.messages?.length
   })
 
   // If not from side panel and no tabId, we can't send response
@@ -143,46 +150,96 @@ async function handleStreamExplanation(
     })
     console.log("[Background] Google AI provider created")
 
-    const { selectedText, pageTitle, pageContent, messages } = data
+    const {
+      selectedText,
+      pageTitle,
+      pageContent,
+      messages,
+      mode = "explain",
+      quotedText,
+      inlineQuote
+    } = data
     const isFollowUp = messages.length > 0
+
     console.log("[Background] Processing request:", {
+      mode,
       isFollowUp,
-      selectedTextLength: selectedText?.length
+      selectedTextLength: selectedText?.length,
+      quotedTextLength: quotedText?.length,
+      inlineQuote: !!inlineQuote
     })
 
     // Build messages array for the AI
     const aiMessages: Array<{ role: "user" | "assistant"; content: string }> =
       []
 
-    if (!isFollowUp) {
-      // Initial explanation request
-      const initialPrompt = generateExplainPrompt({
-        selectedText,
+    if (mode === "quote") {
+      // Quote mode: user is asking about specific quoted text
+      if (!isFollowUp) {
+        // First message in quote mode - need user's question from the last message
+        // This shouldn't happen normally since quote mode waits for user input
+        // But handle it gracefully
+        console.log(
+          "[Background] Quote mode but no messages - waiting for user input"
+        )
+        return
+      }
+
+      // Get the last user message as the question
+      const lastUserMessage = messages[messages.length - 1]
+      const userQuestion =
+        lastUserMessage?.role === "user" ? lastUserMessage.content : ""
+
+      // Build conversation history (excluding the last message which is the current question)
+      const conversationHistory = messages.slice(0, -1)
+
+      // Generate quote prompt
+      const quotePrompt = generateQuotePrompt({
+        quotedText: quotedText || selectedText,
         pageTitle,
         pageContent,
-        isFollowUp: false
+        userQuestion,
+        conversationHistory:
+          conversationHistory.length > 0 ? conversationHistory : undefined
       })
 
       aiMessages.push({
         role: "user",
-        content: initialPrompt
+        content: quotePrompt
       })
     } else {
-      // Add initial context as first message
-      const initialPrompt = generateExplainPrompt({
-        selectedText,
-        pageTitle,
-        pageContent,
-        isFollowUp: false
-      })
+      // Explain mode (default)
+      if (!isFollowUp) {
+        // Initial explanation request
+        const initialPrompt = generateExplainPrompt({
+          selectedText,
+          pageTitle,
+          pageContent,
+          isFollowUp: false
+        })
 
-      aiMessages.push({
-        role: "user",
-        content: initialPrompt
-      })
+        aiMessages.push({
+          role: "user",
+          content: initialPrompt
+        })
+      } else {
+        // Follow-up in explain mode
+        // Add initial context as first message
+        const initialPrompt = generateExplainPrompt({
+          selectedText,
+          pageTitle,
+          pageContent,
+          isFollowUp: false
+        })
 
-      // Add conversation history
-      aiMessages.push(...messages)
+        aiMessages.push({
+          role: "user",
+          content: initialPrompt
+        })
+
+        // Add conversation history
+        aiMessages.push(...messages)
+      }
     }
 
     // Stream with Vercel AI SDK

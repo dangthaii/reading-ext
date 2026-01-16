@@ -208,6 +208,8 @@ export const ChatArea = memo(function ChatArea({
         pageTitle,
         pageContent,
         messages: [],
+        mode: "explain",
+        quotedText: quotedText,
         onChunk: (text) => {
           fullStreamedContent += text
           setStreamingContent(fullStreamedContent)
@@ -279,6 +281,9 @@ export const ChatArea = memo(function ChatArea({
         pageTitle,
         pageContent,
         messages: updatedMessages,
+        mode: mode,
+        quotedText: quotedText,
+        inlineQuote: inlineQuote || undefined,
         onChunk: (text) => {
           fullStreamedContent += text
           setStreamingContent(fullStreamedContent)

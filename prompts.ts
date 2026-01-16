@@ -36,6 +36,48 @@ Sử dụng markdown để format cho dễ đọc. Có thể dùng **bold**, *it
 }
 
 /**
+ * Generate prompt for quote mode - waiting for user's question about the quoted text
+ */
+export function generateQuotePrompt(params: {
+  quotedText: string
+  pageTitle: string
+  pageContent: string
+  userQuestion: string
+  conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>
+}): string {
+  const historyContext =
+    params.conversationHistory && params.conversationHistory.length > 0
+      ? `\n\n**Lịch sử cuộc trò chuyện trước đó:**\n${params.conversationHistory
+          .map(
+            (m) => `${m.role === "user" ? "Người dùng" : "AI"}: ${m.content}`
+          )
+          .join("\n")}`
+      : ""
+
+  return `Bạn là một trợ lý AI thông minh. Người dùng đang đọc một trang web và đã chọn (quote) một đoạn text cụ thể để hỏi về nó.
+
+**Trang web:** ${params.pageTitle}
+
+**Đoạn text được quote:**
+"${params.quotedText}"
+
+**Ngữ cảnh của trang (để tham khảo):**
+${params.pageContent.slice(0, 2000)}${params.pageContent.length > 2000 ? "..." : ""}
+${historyContext}
+
+**Câu hỏi của người dùng về đoạn text được quote:**
+"${params.userQuestion}"
+
+Hãy trả lời câu hỏi của người dùng bằng tiếng Việt:
+- **Tập trung vào đoạn text được quote**: Đây là trọng tâm của câu hỏi
+- **Hiểu context**: Sử dụng ngữ cảnh trang web để trả lời chính xác
+- **Súc tích và hữu ích**: Trả lời đúng trọng tâm, không lan man
+- **Sinh động**: Dùng emoji khi phù hợp
+
+Sử dụng markdown để format.`
+}
+
+/**
  * Generate system prompt for the AI assistant
  */
 export const READING_ASSISTANT_SYSTEM_PROMPT = `Bạn là một trợ lý AI thông minh giúp người dùng hiểu rõ hơn về nội dung họ đang đọc trên web. 
@@ -47,3 +89,10 @@ Nhiệm vụ của bạn:
 - Giữ câu trả lời ngắn gọn, súc tích nhưng đầy đủ thông tin
 
 Luôn trả lời bằng tiếng Việt và sử dụng markdown để format.`
+
+/**
+ * Generate follow-up prompt for continuing conversation
+ */
+export function generateFollowUpPrompt(): string {
+  return `Tiếp tục trả lời dựa trên cuộc trò chuyện trước đó. Hãy trả lời ngắn gọn, súc tích và hữu ích.`
+}

@@ -8,6 +8,11 @@ interface StreamExplanationParams {
   pageTitle: string
   pageContent: string
   messages: Message[]
+  // New: mode and quotedText for quote functionality
+  mode?: "explain" | "quote"
+  quotedText?: string
+  // New: inline quote for current tab quoting
+  inlineQuote?: string
   onChunk: (text: string) => void
   onComplete: () => void
   onError: (error: Error) => void
@@ -22,6 +27,9 @@ export async function streamExplanation(params: StreamExplanationParams) {
     pageTitle,
     pageContent,
     messages,
+    mode = "explain",
+    quotedText,
+    inlineQuote,
     onChunk,
     onComplete,
     onError
@@ -30,7 +38,10 @@ export async function streamExplanation(params: StreamExplanationParams) {
   console.log("[ContentScript] streamExplanation called", {
     selectedTextLength: selectedText?.length,
     pageTitle,
-    messagesCount: messages.length
+    messagesCount: messages.length,
+    mode,
+    hasQuotedText: !!quotedText,
+    hasInlineQuote: !!inlineQuote
   })
 
   try {
@@ -61,7 +72,10 @@ export async function streamExplanation(params: StreamExplanationParams) {
         selectedText,
         pageTitle,
         pageContent,
-        messages
+        messages,
+        mode,
+        quotedText,
+        inlineQuote
       }
     })
     console.log("[ContentScript] Message sent to background")
