@@ -9,7 +9,7 @@ import {
 import cssText from "data-text:~style.css"
 import Defuddle from "defuddle"
 import type { PlasmoCSConfig } from "plasmo"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import TurndownService from "turndown"
 import { gfm } from "turndown-plugin-gfm"
 
@@ -90,21 +90,9 @@ const ReadingExtension = () => {
   const [selectedText, setSelectedText] = useState<string | null>(null)
   const [selectionRange, setSelectionRange] = useState<Range | null>(null)
 
-  // Create virtual element from selection range
-  const virtualElement = useMemo(() => {
-    if (!selectionRange) return null
-    return {
-      getBoundingClientRect: () => selectionRange.getBoundingClientRect(),
-      getClientRects: () => selectionRange.getClientRects()
-    }
-  }, [selectionRange])
-
   // Use Floating UI for positioning
   const { refs, floatingStyles } = useFloating({
     placement: "top",
-    elements: {
-      reference: virtualElement
-    },
     middleware: [
       inline(),
       offset(10),
@@ -113,6 +101,16 @@ const ReadingExtension = () => {
     ],
     whileElementsMounted: autoUpdate
   })
+
+  // Set virtual element reference when selection range changes
+  useEffect(() => {
+    if (selectionRange) {
+      refs.setPositionReference({
+        getBoundingClientRect: () => selectionRange.getBoundingClientRect(),
+        getClientRects: () => selectionRange.getClientRects()
+      })
+    }
+  }, [selectionRange, refs])
 
   // Parse page content with Defuddle
   const parsePageContent = useCallback((): PageContext => {
@@ -231,7 +229,7 @@ const ReadingExtension = () => {
   return (
     <>
       {/* Selection Icon - positioned by Floating UI */}
-      {selectedText && virtualElement && (
+      {selectedText && selectionRange && (
         <div
           ref={refs.setFloating}
           data-plasmo-reading-icon="true"

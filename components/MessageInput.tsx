@@ -13,8 +13,8 @@ export const MessageInput = memo(function MessageInput({
   onSend,
   disabled
 }: MessageInputProps) {
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
       e.preventDefault()
       if (!disabled && value.trim()) {
         onSend()
@@ -25,15 +25,15 @@ export const MessageInput = memo(function MessageInput({
   return (
     <div className="px-4 pb-2 bg-white">
       <div className="flex gap-2">
-        <textarea
+        <input
+          type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Ask a follow-up question..."
           disabled={disabled}
-          rows={2}
-          className="flex-1 px-4 py-2.5 bg-white border border-slate-200 rounded-xl
-                     text-slate-800 text-sm placeholder:text-slate-400 resize-none
+          className="flex-1 px-4 py-3 bg-white border border-slate-200 rounded-xl
+                     text-slate-800 text-sm placeholder:text-slate-400
                      outline-none focus:border-orange-300 focus:ring-1 focus:ring-orange-300
                      transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         />

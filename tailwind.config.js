@@ -5,6 +5,7 @@ module.exports = {
   content: [
     "./popup.tsx",
     "./content.tsx",
+    "./sidepanel.tsx",
     "./contents/**/*.tsx",
     "./components/**/*.tsx"
   ],
