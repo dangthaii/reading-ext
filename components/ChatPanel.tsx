@@ -179,7 +179,7 @@ export function ChatPanel({
       </button>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col overflow-hidden relative isolate">
+      <div className="flex-1 flex flex-col overflow-hidden relative isolate border border-orange-300 rounded-lg">
         <MessagesArea
           messagesContainerRef={messagesContainerRef}
           selectedText={selectedText}
