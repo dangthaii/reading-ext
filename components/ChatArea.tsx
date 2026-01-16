@@ -44,6 +44,10 @@ interface ChatAreaProps {
   onMessagesChange?: (messages: Message[]) => void
   onInitialized?: () => void
 
+  // Scroll position state from parent
+  initialScrollPosition?: number
+  onScrollPositionChange?: (scrollPosition: number) => void
+
   // Tabs (optional)
   tabs?: TabInfo[]
   activeTabId?: string
@@ -68,13 +72,16 @@ export const ChatArea = memo(function ChatArea({
   tabs,
   activeTabId,
   onTabChange,
-  onTabClose
+  onTabClose,
+  initialScrollPosition = 0,
+  onScrollPositionChange
 }: ChatAreaProps) {
   const [messages, setMessages] = useState<Message[]>(initialMessages)
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [streamingContent, setStreamingContent] = useState("")
   const [placeholderActive, setPlaceholderActive] = useState(false)
+  const [inlineQuote, setInlineQuote] = useState<string | null>(null) // For quote in current tab
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const hasInitializedRef = useRef(initialMessages.length > 0)
@@ -99,8 +106,38 @@ export const ChatArea = memo(function ChatArea({
       setStreamingContent("")
       setPlaceholderActive(false)
       hasInitializedRef.current = initialMessages.length > 0
+
+      // Restore scroll position after state update
+      requestAnimationFrame(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = initialScrollPosition
+        }
+      })
     }
-  }, [tabId, initialMessages])
+  }, [tabId, initialMessages, initialScrollPosition])
+
+  // Save scroll position when user scrolls (debounced)
+  useEffect(() => {
+    const container = messagesContainerRef.current
+    if (!container || !onScrollPositionChange) return
+
+    let timeoutId: ReturnType<typeof setTimeout>
+
+    const handleScroll = () => {
+      clearTimeout(timeoutId)
+      timeoutId = setTimeout(() => {
+        if (messagesContainerRef.current) {
+          onScrollPositionChange(messagesContainerRef.current.scrollTop)
+        }
+      }, 100) // Debounce 100ms
+    }
+
+    container.addEventListener("scroll", handleScroll)
+    return () => {
+      container.removeEventListener("scroll", handleScroll)
+      clearTimeout(timeoutId)
+    }
+  }, [onScrollPositionChange])
 
   // Auto-scroll to bottom
   const scrollToBottom = useCallback(() => {
@@ -214,11 +251,18 @@ export const ChatArea = memo(function ChatArea({
   const handleSendMessage = useCallback(async () => {
     if (!input.trim() || isLoading) return
 
-    const userMessage: Message = { role: "user", content: input.trim() }
+    // Build message content with inline quote if present
+    let messageContent = input.trim()
+    if (inlineQuote) {
+      messageContent = `[Regarding: "${inlineQuote}"]\n\n${messageContent}`
+    }
+
+    const userMessage: Message = { role: "user", content: messageContent }
     const updatedMessages = [...messages, userMessage]
     setPlaceholderActive(true)
     setMessages(updatedMessages)
     setInput("")
+    setInlineQuote(null) // Clear inline quote after sending
     setIsLoading(true)
     setStreamingContent("")
     requestAnimationFrame(() => {
@@ -271,8 +315,29 @@ export const ChatArea = memo(function ChatArea({
     contextText,
     pageTitle,
     pageContent,
-    scrollLatestUserMessageIntoView
+    scrollLatestUserMessageIntoView,
+    inlineQuote
   ])
+
+  // Handle quote in current tab (not creating new tab)
+  const handleQuoteInPlace = useCallback((text: string) => {
+    setInlineQuote(text)
+    // Focus input and scroll to bottom
+    requestAnimationFrame(() => {
+      inputRef.current?.focus()
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTo({
+          top: messagesContainerRef.current.scrollHeight,
+          behavior: "smooth"
+        })
+      }
+    })
+  }, [])
+
+  // Clear inline quote after sending message
+  const clearInlineQuote = useCallback(() => {
+    setInlineQuote(null)
+  }, [])
 
   const textSize = compact ? "text-xs" : "text-sm"
   const padding = compact ? "p-3" : "p-4"
@@ -292,6 +357,7 @@ export const ChatArea = memo(function ChatArea({
             containerRef={messagesContainerRef}
             onExplain={onExplainSelection}
             onQuote={onQuoteSelection}
+            onQuoteInPlace={handleQuoteInPlace}
           />
         )}
 
@@ -480,12 +546,40 @@ export const ChatArea = memo(function ChatArea({
           </div>
         )}
 
-        {/* Quote indicator - show above input when in quote mode */}
-        {mode === "quote" && quotedText && (
+        {/* Quote indicator - show above input when in quote mode, only before first message */}
+        {mode === "quote" && quotedText && messages.length === 0 && (
           <div className="mb-2 p-2 bg-slate-50 rounded-lg border-l-2 border-blue-400">
             <p className="text-slate-600 text-xs leading-relaxed m-0 italic line-clamp-2">
               Replying to: "{quotedText}"
             </p>
+          </div>
+        )}
+
+        {/* Inline quote indicator - for quote in current tab */}
+        {inlineQuote && (
+          <div className="mb-2 p-2 bg-green-50 rounded-lg border-l-2 border-green-400 flex items-start justify-between gap-2">
+            <p className="text-slate-600 text-xs leading-relaxed m-0 italic line-clamp-2 flex-1">
+              Quoting: "{inlineQuote}"
+            </p>
+            <button
+              onClick={clearInlineQuote}
+              className="flex-shrink-0 w-4 h-4 flex items-center justify-center rounded-full
+                         text-slate-400 hover:text-red-500 hover:bg-red-50
+                         transition-all cursor-pointer border-none bg-transparent"
+              title="Clear quote">
+              <svg
+                className="w-3 h-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
           </div>
         )}
 

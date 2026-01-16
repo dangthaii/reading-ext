@@ -25,6 +25,8 @@ interface TabData {
   // Store messages for each tab to preserve state
   messages: Message[]
   isInitialized: boolean
+  // Store scroll position for each tab
+  scrollPosition: number
 }
 
 function SidePanel() {
@@ -50,7 +52,8 @@ function SidePanel() {
               parentMessages: []
             },
             messages: [],
-            isInitialized: false
+            isInitialized: false,
+            scrollPosition: 0
           }
         ])
         setActiveTabId("main")
@@ -75,7 +78,8 @@ function SidePanel() {
               parentMessages: []
             },
             messages: [],
-            isInitialized: false
+            isInitialized: false,
+            scrollPosition: 0
           }
         ])
       }
@@ -129,6 +133,16 @@ function SidePanel() {
     )
   }, [])
 
+  // Update scroll position for a specific tab
+  const handleScrollPositionChange = useCallback(
+    (tabId: string, scrollPosition: number) => {
+      setTabs((prev) =>
+        prev.map((t) => (t.id === tabId ? { ...t, scrollPosition } : t))
+      )
+    },
+    []
+  )
+
   // Create a new tab (explain or quote)
   const handleCreateTab = useCallback(
     (type: "explain" | "quote", quotedText: string) => {
@@ -147,7 +161,8 @@ function SidePanel() {
         },
         quotedText,
         messages: [],
-        isInitialized: false
+        isInitialized: false,
+        scrollPosition: 0
       }
 
       setTabs((prev) => [...prev, newTab])
@@ -217,6 +232,11 @@ function SidePanel() {
                 handleMessagesChange(activeTab.id, msgs)
               }
               onInitialized={() => handleTabInitialized(activeTab.id)}
+              // Pass scroll position
+              initialScrollPosition={activeTab.scrollPosition}
+              onScrollPositionChange={(pos) =>
+                handleScrollPositionChange(activeTab.id, pos)
+              }
               // Pass tabs info for rendering tabs bar
               tabs={tabs}
               activeTabId={activeTabId}

@@ -4,12 +4,14 @@ import { memo, useCallback, useEffect, useState } from "react"
 interface SelectionPopupProps {
   onExplain: (selectedText: string) => void
   onQuote: (selectedText: string) => void
+  onQuoteInPlace?: (selectedText: string) => void
   containerRef: React.RefObject<HTMLDivElement>
 }
 
 export const SelectionPopup = memo(function SelectionPopup({
   onExplain,
   onQuote,
+  onQuoteInPlace,
   containerRef
 }: SelectionPopupProps) {
   const [isVisible, setIsVisible] = useState(false)
@@ -101,6 +103,14 @@ export const SelectionPopup = memo(function SelectionPopup({
     }
   }
 
+  const handleQuoteInPlace = () => {
+    if (selectedText && onQuoteInPlace) {
+      onQuoteInPlace(selectedText)
+      setIsVisible(false)
+      window.getSelection()?.removeAllRanges()
+    }
+  }
+
   if (!isVisible) return null
 
   return (
@@ -113,7 +123,7 @@ export const SelectionPopup = memo(function SelectionPopup({
         onClick={handleExplain}
         className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-700 
                    hover:bg-orange-50 hover:text-orange-600 rounded-md transition-colors cursor-pointer border-none bg-transparent"
-        title="Explain this">
+        title="Explain this (new tab)">
         <svg
           className="w-3.5 h-3.5"
           fill="none"
@@ -132,12 +142,12 @@ export const SelectionPopup = memo(function SelectionPopup({
       {/* Divider */}
       <div className="w-px h-4 bg-slate-200" />
 
-      {/* Quote Button */}
+      {/* Quote Button (new tab) */}
       <button
         onClick={handleQuote}
         className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-700 
                    hover:bg-blue-50 hover:text-blue-600 rounded-md transition-colors cursor-pointer border-none bg-transparent"
-        title="Quote and ask">
+        title="Quote in new tab">
         <svg
           className="w-3.5 h-3.5"
           fill="none"
@@ -152,6 +162,32 @@ export const SelectionPopup = memo(function SelectionPopup({
         </svg>
         Quote
       </button>
+
+      {/* Quote In Place Button (current tab) */}
+      {onQuoteInPlace && (
+        <>
+          <div className="w-px h-4 bg-slate-200" />
+          <button
+            onClick={handleQuoteInPlace}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-700 
+                       hover:bg-green-50 hover:text-green-600 rounded-md transition-colors cursor-pointer border-none bg-transparent"
+            title="Quote in current tab">
+            <svg
+              className="w-3.5 h-3.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+              />
+            </svg>
+            Here
+          </button>
+        </>
+      )}
     </div>
   )
 })
