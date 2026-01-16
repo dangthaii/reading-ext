@@ -29,11 +29,55 @@ storage.watch({
   }
 })
 
+// Configure side panel behavior - open on action click
+chrome.sidePanel
+  .setPanelBehavior({ openPanelOnActionClick: true })
+  .catch((error) => console.error("Error setting panel behavior:", error))
+
+// Store panel data to forward to side panel
+let pendingPanelData: {
+  selectedText: string
+  pageTitle: string
+  pageContent: string
+} | null = null
+
 // Listen for messages from content script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === "STREAM_EXPLANATION") {
     handleStreamExplanation(request.data, sender.tab?.id)
     // Return true to indicate we'll respond asynchronously
+    return true
+  }
+
+  // Handle opening side panel with data from content script
+  if (request.type === "OPEN_SIDE_PANEL") {
+    const tabId = sender.tab?.id
+    if (tabId) {
+      pendingPanelData = request.data
+
+      // Open the side panel for this tab
+      chrome.sidePanel
+        .open({ tabId })
+        .then(() => {
+          console.log("[Background] Side panel opened for tab:", tabId)
+          // Send data to side panel after a short delay to ensure it's loaded
+          setTimeout(() => {
+            chrome.runtime.sendMessage({
+              type: "PANEL_DATA",
+              data: pendingPanelData
+            })
+          }, 100)
+        })
+        .catch((error) => {
+          console.error("[Background] Error opening side panel:", error)
+        })
+    }
+    return true
+  }
+
+  // Handle side panel requesting data
+  if (request.type === "GET_PANEL_DATA") {
+    sendResponse({ data: pendingPanelData })
     return true
   }
 })

@@ -38,10 +38,14 @@
   },
   "manifest": {
     "permissions": [
-      "storage"
+      "storage",
+      "sidePanel"
     ],
     "host_permissions": [
       "https://*/*"
-    ]
+    ],
+    "side_panel": {
+      "default_path": "sidepanel.html"
+    }
   }
 }

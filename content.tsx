@@ -13,8 +13,6 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import TurndownService from "turndown"
 import { gfm } from "turndown-plugin-gfm"
 
-import { ChatPanel } from "~components/ChatPanel"
-
 export const config: PlasmoCSConfig = {
   matches: ["<all_urls>"],
   all_frames: true
@@ -91,11 +89,6 @@ interface PageContext {
 const ReadingExtension = () => {
   const [selectedText, setSelectedText] = useState<string | null>(null)
   const [selectionRange, setSelectionRange] = useState<Range | null>(null)
-  const [isPanelOpen, setIsPanelOpen] = useState(false)
-  const [panelText, setPanelText] = useState("")
-  const [pageContext, setPageContext] = useState<PageContext | null>(null)
-  const [isLoadingContext, setIsLoadingContext] = useState(false)
-  const [copySuccess, setCopySuccess] = useState(false)
 
   // Create virtual element from selection range
   const virtualElement = useMemo(() => {
@@ -122,10 +115,8 @@ const ReadingExtension = () => {
   })
 
   // Parse page content with Defuddle
-  const parsePageContent = useCallback(() => {
+  const parsePageContent = useCallback((): PageContext => {
     try {
-      setIsLoadingContext(true)
-
       // Clone document to avoid modifying original
       const clonedDoc = document.cloneNode(true) as Document
 
@@ -144,7 +135,7 @@ const ReadingExtension = () => {
         ? markdownContent.split(/\s+/).filter(Boolean).length
         : 0
 
-      setPageContext({
+      return {
         title: result.title || document.title || "Untitled",
         author: result.author || null,
         description: result.description || null,
@@ -152,12 +143,12 @@ const ReadingExtension = () => {
         htmlContent,
         wordCount,
         url: window.location.href
-      })
+      }
     } catch (error) {
       console.error("Error parsing page:", error)
       // Fallback: just get text content
       const fallbackContent = document.body.innerText
-      setPageContext({
+      return {
         title: document.title || "Untitled",
         author: null,
         description: null,
@@ -165,42 +156,9 @@ const ReadingExtension = () => {
         htmlContent: "",
         wordCount: fallbackContent.split(/\s+/).filter(Boolean).length,
         url: window.location.href
-      })
-    } finally {
-      setIsLoadingContext(false)
+      }
     }
   }, [])
-
-  // Copy content to clipboard
-  const handleCopyContent = useCallback(async () => {
-    if (!pageContext) return
-
-    const fullContent = `# ${pageContext.title}
-
-${pageContext.author ? `**Author:** ${pageContext.author}\n\n` : ""}${pageContext.description ? `> ${pageContext.description}\n\n` : ""}**URL:** ${pageContext.url}
-**Words:** ${pageContext.wordCount.toLocaleString()}
-
----
-
-## Selected Text
-
-${panelText}
-
----
-
-## Full Page Content
-
-${pageContext.content}
-`
-
-    try {
-      await navigator.clipboard.writeText(fullContent)
-      setCopySuccess(true)
-      setTimeout(() => setCopySuccess(false), 2000)
-    } catch (err) {
-      console.error("Failed to copy:", err)
-    }
-  }, [pageContext, panelText])
 
   useEffect(() => {
     const handleMouseUp = () => {
@@ -217,12 +175,10 @@ ${pageContext.content}
 
     const handleMouseDown = () => {
       setTimeout(() => {
-        if (!document.querySelector('[data-plasmo-reading-panel="true"]')) {
-          const text = window.getSelection()?.toString().trim()
-          if (!text) {
-            setSelectedText(null)
-            setSelectionRange(null)
-          }
+        const text = window.getSelection()?.toString().trim()
+        if (!text) {
+          setSelectedText(null)
+          setSelectionRange(null)
         }
       }, 100)
     }
@@ -231,7 +187,6 @@ ${pageContext.content}
       if (e.key === "Escape") {
         setSelectedText(null)
         setSelectionRange(null)
-        setIsPanelOpen(false)
       }
     }
 
@@ -246,32 +201,32 @@ ${pageContext.content}
     }
   }, [])
 
-  // Handle icon click
+  // Handle icon click - open side panel
   const handleIconClick = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault()
       e.stopPropagation()
 
       if (selectedText) {
-        setPanelText(selectedText)
-        setIsPanelOpen(true)
+        // Parse page content
+        const pageContext = parsePageContent()
+
+        // Send message to background to open side panel with data
+        chrome.runtime.sendMessage({
+          type: "OPEN_SIDE_PANEL",
+          data: {
+            selectedText,
+            pageTitle: pageContext.title,
+            pageContent: pageContext.content
+          }
+        })
+
         setSelectedText(null)
         setSelectionRange(null)
-
-        // Parse page content when opening panel
-        parsePageContent()
       }
     },
     [selectedText, parsePageContent]
   )
-
-  // Close panel
-  const handleClosePanel = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsPanelOpen(false)
-    setPageContext(null)
-  }, [])
 
   return (
     <>
@@ -297,23 +252,6 @@ ${pageContext.content}
               <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" />
             </svg>
           </button>
-        </div>
-      )}
-
-      {/* Side Panel */}
-      {isPanelOpen && (
-        <div
-          data-plasmo-reading-panel="true"
-          className="fixed top-0 right-0 h-screen w-[480px] z-[2147483647] 
-                     bg-white shadow-2xl shadow-black/10
-                     flex flex-col font-sans pointer-events-auto">
-          {/* Panel Content - AI Chat */}
-          <ChatPanel
-            selectedText={panelText}
-            pageTitle={pageContext?.title || ""}
-            pageContent={pageContext?.content || ""}
-            onClose={handleClosePanel}
-          />
         </div>
       )}
     </>
