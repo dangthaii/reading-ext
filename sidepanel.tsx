@@ -1,16 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 
-import { MessageInput } from "~components/MessageInput"
-import { MessagesArea } from "~components/MessagesArea"
-import { streamExplanation } from "~lib/ai"
+import { ChatArea, type Message, type TabInfo } from "~components/ChatArea"
 
 // Import Tailwind styles directly for extension pages
 import "~style.css"
-
-interface Message {
-  role: "user" | "assistant"
-  content: string
-}
 
 interface PanelData {
   selectedText: string
@@ -18,69 +11,49 @@ interface PanelData {
   pageContent: string
 }
 
+interface TabData {
+  id: string
+  type: "main" | "explain" | "quote"
+  label: string
+  context: {
+    selectedText: string
+    pageTitle: string
+    pageContent: string
+    parentMessages: Message[]
+  }
+  quotedText?: string
+  // Store messages for each tab to preserve state
+  messages: Message[]
+  isInitialized: boolean
+}
+
 function SidePanel() {
   const [panelData, setPanelData] = useState<PanelData | null>(null)
-  const [messages, setMessages] = useState<Message[]>([])
-  const [input, setInput] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [streamingContent, setStreamingContent] = useState("")
-  const [placeholderActive, setPlaceholderActive] = useState(false)
-  const messagesContainerRef = useRef<HTMLDivElement>(null)
-  const hasInitializedRef = useRef(false)
-
-  // Auto-scroll to bottom
-  const scrollToBottom = useCallback(() => {
-    const container = messagesContainerRef.current
-    if (!container) return
-
-    const distanceFromBottom =
-      container.scrollHeight - container.scrollTop - container.clientHeight
-
-    if (distanceFromBottom > 80) {
-      return
-    }
-
-    container.scrollTo({
-      top: container.scrollHeight,
-      behavior: "smooth"
-    })
-  }, [])
-
-  useEffect(() => {
-    if (placeholderActive) return
-    scrollToBottom()
-  }, [messages, streamingContent, scrollToBottom, placeholderActive])
-
-  const scrollLatestUserMessageIntoView = useCallback(() => {
-    const container = messagesContainerRef.current
-    if (!container) return
-
-    const userMessages = container.querySelectorAll<HTMLElement>(
-      "[data-message='true'][data-role='user']"
-    )
-
-    if (userMessages.length === 0) return
-
-    const latestUserMessage = userMessages[userMessages.length - 1]
-    const containerStyles = window.getComputedStyle(container)
-    const paddingTop = parseFloat(containerStyles.paddingTop || "0")
-
-    container.scrollTo({
-      top: Math.max(latestUserMessage.offsetTop - paddingTop, 0),
-      behavior: "smooth"
-    })
-  }, [])
+  const [tabs, setTabs] = useState<TabData[]>([])
+  const [activeTabId, setActiveTabId] = useState<string>("main")
 
   // Listen for panel data from background script
   useEffect(() => {
     const handleMessage = (message: any) => {
       if (message.type === "PANEL_DATA") {
         setPanelData(message.data)
-        // Reset state for new text
-        setMessages([])
-        setStreamingContent("")
-        setPlaceholderActive(false)
-        hasInitializedRef.current = false
+        // Reset tabs, keep only main
+        setTabs([
+          {
+            id: "main",
+            type: "main",
+            label: "Main",
+            context: {
+              selectedText: message.data.selectedText,
+              pageTitle: message.data.pageTitle,
+              pageContent: message.data.pageContent,
+              parentMessages: []
+            },
+            messages: [],
+            isInitialized: false
+          }
+        ])
+        setActiveTabId("main")
       }
     }
 
@@ -90,6 +63,21 @@ function SidePanel() {
     chrome.runtime.sendMessage({ type: "GET_PANEL_DATA" }, (response) => {
       if (response?.data) {
         setPanelData(response.data)
+        setTabs([
+          {
+            id: "main",
+            type: "main",
+            label: "Main",
+            context: {
+              selectedText: response.data.selectedText,
+              pageTitle: response.data.pageTitle,
+              pageContent: response.data.pageContent,
+              parentMessages: []
+            },
+            messages: [],
+            isInitialized: false
+          }
+        ])
       }
     })
 
@@ -98,139 +86,145 @@ function SidePanel() {
     }
   }, [])
 
-  // Handle initial explanation
-  const handleInitialExplain = useCallback(async () => {
-    if (!panelData) return
-
-    setPlaceholderActive(false)
-    setIsLoading(true)
-    setStreamingContent("")
-
-    try {
-      let fullStreamedContent = ""
-
-      await streamExplanation({
-        selectedText: panelData.selectedText,
-        pageTitle: panelData.pageTitle,
-        pageContent: panelData.pageContent,
-        messages: [],
-        onChunk: (text) => {
-          fullStreamedContent += text
-          setStreamingContent(fullStreamedContent)
-        },
-        onComplete: () => {
-          setMessages((prev) => [
-            ...prev,
-            { role: "assistant", content: fullStreamedContent }
-          ])
-          setStreamingContent("")
-          setIsLoading(false)
-        },
-        onError: (error) => {
-          console.error("Error getting explanation:", error)
-          setMessages((prev) => [
-            ...prev,
-            {
-              role: "assistant",
-              content:
-                "Sorry, I encountered an error generating the explanation."
-            }
-          ])
-          setStreamingContent("")
-          setIsLoading(false)
-        }
-      })
-    } catch (error) {
-      console.error("Error initiating explanation:", error)
-      setIsLoading(false)
-    }
-  }, [panelData])
-
-  // Trigger initial explanation when panel data is received
+  // Handle keyboard navigation (Tab key only - when input not focused)
   useEffect(() => {
-    if (panelData && !hasInitializedRef.current) {
-      hasInitializedRef.current = true
-      handleInitialExplain()
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only trigger if Tab key pressed and not in an input/textarea
+      const target = e.target as HTMLElement
+      const isInputFocused =
+        target.tagName === "INPUT" || target.tagName === "TEXTAREA"
+
+      if (e.key === "Tab" && !isInputFocused && tabs.length > 1) {
+        e.preventDefault()
+        e.stopPropagation()
+
+        const currentIndex = tabs.findIndex((t) => t.id === activeTabId)
+        const nextIndex = e.shiftKey
+          ? (currentIndex - 1 + tabs.length) % tabs.length
+          : (currentIndex + 1) % tabs.length
+        setActiveTabId(tabs[nextIndex].id)
+      }
     }
-  }, [panelData, handleInitialExplain])
 
-  // Handle sending message
-  const handleSendMessage = useCallback(async () => {
-    if (!input.trim() || isLoading || !panelData) return
+    document.addEventListener("keydown", handleKeyDown, true) // Use capture
+    return () => document.removeEventListener("keydown", handleKeyDown, true)
+  }, [tabs, activeTabId])
 
-    const userMessage: Message = { role: "user", content: input.trim() }
-    const updatedMessages = [...messages, userMessage]
-    setPlaceholderActive(true)
-    setMessages(updatedMessages)
-    setInput("")
-    setIsLoading(true)
-    setStreamingContent("")
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        scrollLatestUserMessageIntoView()
-      })
-    })
+  // Update messages for a specific tab
+  const handleMessagesChange = useCallback(
+    (tabId: string, messages: Message[]) => {
+      setTabs((prev) =>
+        prev.map((t) =>
+          t.id === tabId ? { ...t, messages, isInitialized: true } : t
+        )
+      )
+    },
+    []
+  )
 
-    try {
-      let fullStreamedContent = ""
+  // Mark tab as initialized (after first API call)
+  const handleTabInitialized = useCallback((tabId: string) => {
+    setTabs((prev) =>
+      prev.map((t) => (t.id === tabId ? { ...t, isInitialized: true } : t))
+    )
+  }, [])
 
-      await streamExplanation({
-        selectedText: panelData.selectedText,
-        pageTitle: panelData.pageTitle,
-        pageContent: panelData.pageContent,
-        messages: updatedMessages,
-        onChunk: (text) => {
-          fullStreamedContent += text
-          setStreamingContent(fullStreamedContent)
+  // Create a new tab (explain or quote)
+  const handleCreateTab = useCallback(
+    (type: "explain" | "quote", quotedText: string) => {
+      if (!panelData) return
+
+      const activeTab = tabs.find((t) => t.id === activeTabId)
+      const newTab: TabData = {
+        id: `tab-${Date.now()}`,
+        type,
+        label: type === "explain" ? "Explain" : "Quote",
+        context: {
+          selectedText: quotedText,
+          pageTitle: panelData.pageTitle,
+          pageContent: panelData.pageContent,
+          parentMessages: activeTab?.messages || []
         },
-        onComplete: () => {
-          setMessages((prev) => [
-            ...prev,
-            { role: "assistant", content: fullStreamedContent }
-          ])
-          setStreamingContent("")
-          setIsLoading(false)
-        },
-        onError: (error) => {
-          console.error("Error sending message:", error)
-          setMessages((prev) => [
-            ...prev,
-            {
-              role: "assistant",
-              content: "Sorry, I encountered an error processing your question."
-            }
-          ])
-          setStreamingContent("")
-          setIsLoading(false)
-        }
-      })
-    } catch (error) {
-      console.error("Error initiating message:", error)
-      setIsLoading(false)
-    }
-  }, [input, isLoading, messages, panelData, scrollLatestUserMessageIntoView])
+        quotedText,
+        messages: [],
+        isInitialized: false
+      }
+
+      setTabs((prev) => [...prev, newTab])
+      setActiveTabId(newTab.id)
+    },
+    [panelData, tabs, activeTabId]
+  )
+
+  // Close a tab
+  const handleCloseTab = useCallback(
+    (tabId: string) => {
+      if (tabId === "main") return // Can't close main tab
+
+      setTabs((prev) => prev.filter((t) => t.id !== tabId))
+
+      // If closing active tab, switch to previous tab or main
+      if (tabId === activeTabId) {
+        const currentIndex = tabs.findIndex((t) => t.id === tabId)
+        const newActiveIndex = Math.max(0, currentIndex - 1)
+        setActiveTabId(tabs[newActiveIndex]?.id || "main")
+      }
+    },
+    [activeTabId, tabs]
+  )
+
+  // Handle explain selection
+  const handleExplainSelection = useCallback(
+    (text: string) => {
+      handleCreateTab("explain", text)
+    },
+    [handleCreateTab]
+  )
+
+  // Handle quote selection
+  const handleQuoteSelection = useCallback(
+    (text: string) => {
+      handleCreateTab("quote", text)
+    },
+    [handleCreateTab]
+  )
+
+  const activeTab = tabs.find((t) => t.id === activeTabId)
 
   return (
     <div className="flex flex-col h-screen bg-white">
-      {/* Main Chat Area */}
-      {panelData ? (
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <MessagesArea
-            messagesContainerRef={messagesContainerRef}
-            selectedText={panelData.selectedText}
-            messages={messages}
-            streamingContent={streamingContent}
-            isLoading={isLoading}
-            placeholderActive={placeholderActive}
-          />
-
-          <MessageInput
-            value={input}
-            onChange={setInput}
-            onSend={handleSendMessage}
-            disabled={isLoading}
-          />
-        </div>
+      {panelData && activeTab ? (
+        <>
+          {/* Chat Area - full height minus tabs */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <ChatArea
+              // Remove key to prevent re-mount, instead use tabId prop
+              tabId={activeTab.id}
+              selectedText={activeTab.context.selectedText}
+              pageTitle={activeTab.context.pageTitle}
+              pageContent={activeTab.context.pageContent}
+              quotedText={activeTab.quotedText}
+              mode={activeTab.type === "quote" ? "quote" : "explain"}
+              onExplainSelection={handleExplainSelection}
+              onQuoteSelection={handleQuoteSelection}
+              // Only auto-explain if tab hasn't been initialized yet
+              autoExplain={
+                activeTab.type !== "quote" && !activeTab.isInitialized
+              }
+              // Pass stored messages
+              initialMessages={activeTab.messages}
+              onMessagesChange={(msgs) =>
+                handleMessagesChange(activeTab.id, msgs)
+              }
+              onInitialized={() => handleTabInitialized(activeTab.id)}
+              // Pass tabs info for rendering tabs bar
+              tabs={tabs}
+              activeTabId={activeTabId}
+              onTabChange={setActiveTabId}
+              onTabClose={handleCloseTab}
+            />
+          </div>
+        </>
       ) : (
         <div className="flex-1 flex items-center justify-center p-6">
           <div className="text-center">
