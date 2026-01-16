@@ -24,6 +24,7 @@ function SidePanel() {
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [streamingContent, setStreamingContent] = useState("")
+  const [placeholderActive, setPlaceholderActive] = useState(false)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const hasInitializedRef = useRef(false)
 
@@ -46,8 +47,29 @@ function SidePanel() {
   }, [])
 
   useEffect(() => {
+    if (placeholderActive) return
     scrollToBottom()
-  }, [messages, streamingContent, scrollToBottom])
+  }, [messages, streamingContent, scrollToBottom, placeholderActive])
+
+  const scrollLatestUserMessageIntoView = useCallback(() => {
+    const container = messagesContainerRef.current
+    if (!container) return
+
+    const userMessages = container.querySelectorAll<HTMLElement>(
+      "[data-message='true'][data-role='user']"
+    )
+
+    if (userMessages.length === 0) return
+
+    const latestUserMessage = userMessages[userMessages.length - 1]
+    const containerStyles = window.getComputedStyle(container)
+    const paddingTop = parseFloat(containerStyles.paddingTop || "0")
+
+    container.scrollTo({
+      top: Math.max(latestUserMessage.offsetTop - paddingTop, 0),
+      behavior: "smooth"
+    })
+  }, [])
 
   // Listen for panel data from background script
   useEffect(() => {
@@ -57,6 +79,7 @@ function SidePanel() {
         // Reset state for new text
         setMessages([])
         setStreamingContent("")
+        setPlaceholderActive(false)
         hasInitializedRef.current = false
       }
     }
@@ -79,6 +102,7 @@ function SidePanel() {
   const handleInitialExplain = useCallback(async () => {
     if (!panelData) return
 
+    setPlaceholderActive(false)
     setIsLoading(true)
     setStreamingContent("")
 
@@ -136,10 +160,16 @@ function SidePanel() {
 
     const userMessage: Message = { role: "user", content: input.trim() }
     const updatedMessages = [...messages, userMessage]
+    setPlaceholderActive(true)
     setMessages(updatedMessages)
     setInput("")
     setIsLoading(true)
     setStreamingContent("")
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        scrollLatestUserMessageIntoView()
+      })
+    })
 
     try {
       let fullStreamedContent = ""
@@ -178,7 +208,7 @@ function SidePanel() {
       console.error("Error initiating message:", error)
       setIsLoading(false)
     }
-  }, [input, isLoading, messages, panelData])
+  }, [input, isLoading, messages, panelData, scrollLatestUserMessageIntoView])
 
   return (
     <div className="flex flex-col h-screen bg-white">
@@ -191,6 +221,7 @@ function SidePanel() {
             messages={messages}
             streamingContent={streamingContent}
             isLoading={isLoading}
+            placeholderActive={placeholderActive}
           />
 
           <MessageInput

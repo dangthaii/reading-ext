@@ -27,6 +27,7 @@ export function ChatPanel({
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [streamingContent, setStreamingContent] = useState("")
+  const [placeholderActive, setPlaceholderActive] = useState(false)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const hasInitializedRef = useRef(false)
 
@@ -49,12 +50,34 @@ export function ChatPanel({
   }, [])
 
   useEffect(() => {
+    if (placeholderActive) return
     scrollToBottom()
-  }, [messages, streamingContent, scrollToBottom])
+  }, [messages, streamingContent, scrollToBottom, placeholderActive])
+
+  const scrollLatestUserMessageIntoView = useCallback(() => {
+    const container = messagesContainerRef.current
+    if (!container) return
+
+    const userMessages = container.querySelectorAll<HTMLElement>(
+      "[data-message='true'][data-role='user']"
+    )
+
+    if (userMessages.length === 0) return
+
+    const latestUserMessage = userMessages[userMessages.length - 1]
+    const containerStyles = window.getComputedStyle(container)
+    const paddingTop = parseFloat(containerStyles.paddingTop || "0")
+
+    container.scrollTo({
+      top: Math.max(latestUserMessage.offsetTop - paddingTop, 0),
+      behavior: "smooth"
+    })
+  }, [])
 
   // Handle initial explanation
   // Handle initial explanation
   const handleInitialExplain = useCallback(async () => {
+    setPlaceholderActive(false)
     setIsLoading(true)
     setStreamingContent("")
 
@@ -112,10 +135,16 @@ export function ChatPanel({
 
     const userMessage: Message = { role: "user", content: input.trim() }
     const updatedMessages = [...messages, userMessage]
+    setPlaceholderActive(true)
     setMessages(updatedMessages)
     setInput("")
     setIsLoading(true)
     setStreamingContent("")
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        scrollLatestUserMessageIntoView()
+      })
+    })
 
     try {
       let fullStreamedContent = ""
@@ -154,7 +183,15 @@ export function ChatPanel({
       console.error("Error initiating message:", error)
       setIsLoading(false)
     }
-  }, [input, isLoading, messages, selectedText, pageTitle, pageContent])
+  }, [
+    input,
+    isLoading,
+    messages,
+    selectedText,
+    pageTitle,
+    pageContent,
+    scrollLatestUserMessageIntoView
+  ])
 
   return (
     <div className="flex flex-col h-full bg-white relative">
@@ -186,6 +223,7 @@ export function ChatPanel({
           messages={messages}
           streamingContent={streamingContent}
           isLoading={isLoading}
+          placeholderActive={placeholderActive}
         />
 
         <MessageInput

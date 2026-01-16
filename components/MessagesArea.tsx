@@ -11,6 +11,7 @@ interface MessagesAreaProps {
   messages: Message[]
   streamingContent: string
   isLoading: boolean
+  placeholderActive: boolean
   messagesContainerRef: React.RefObject<HTMLDivElement>
 }
 
@@ -19,6 +20,7 @@ export const MessagesArea = memo(function MessagesArea({
   messages,
   streamingContent,
   isLoading,
+  placeholderActive,
   messagesContainerRef
 }: MessagesAreaProps) {
   return (
@@ -93,6 +95,16 @@ export const MessagesArea = memo(function MessagesArea({
             />
           </div>
         </div>
+      )}
+
+      {/* Follow-up placeholder */}
+      {placeholderActive && (
+        <div
+          data-placeholder="true"
+          style={{ height: "70vh" }}
+          className="relative"
+          aria-hidden={!placeholderActive}
+        />
       )}
     </div>
   )
