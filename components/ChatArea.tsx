@@ -345,7 +345,7 @@ export const ChatArea = memo(function ChatArea({
   }, [])
 
   const textSize = compact ? "text-xs" : "text-sm"
-  const padding = compact ? "p-3" : "p-4"
+  const padding = compact ? "p-3" : "p-3"
   const spacing = compact ? "space-y-3" : "space-y-4"
 
   const hasTabs = tabs && tabs.length > 1
@@ -401,7 +401,7 @@ export const ChatArea = memo(function ChatArea({
               </div>
             ) : (
               <div
-                className={`prose prose-slate ${compact ? "prose-xs" : "prose-sm"} max-w-none w-full bg-white rounded-xl ${padding} shadow-sm`}
+                className={`prose prose-slate ${compact ? "prose-xs" : "prose-sm"} max-w-none w-full bg-white rounded-xl ${padding}`}
                 dangerouslySetInnerHTML={{
                   __html: marked(message.content) as string
                 }}
