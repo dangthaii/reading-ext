@@ -122,6 +122,24 @@ export const ChatArea = memo(function ChatArea({
   // The text to explain/discuss
   const contextText = quotedText || selectedText
 
+  // Track previous contextText to detect new selections
+  const prevContextTextRef = useRef(contextText)
+
+  // Reset initialization when contextText changes (user selected new text from page)
+  useEffect(() => {
+    if (prevContextTextRef.current !== contextText) {
+      prevContextTextRef.current = contextText
+      // Only reset if this is a main tab (not a sub-tab) and initialMessages are empty
+      // This handles the case when user selects new text while panel is already open
+      if (initialMessages.length === 0) {
+        hasInitializedRef.current = false
+        // Clear old messages immediately so they don't show during streaming
+        setMessages([])
+        setStreamingContent("")
+      }
+    }
+  }, [contextText, initialMessages.length])
+
   // Sync messages with parent when they change
   useEffect(() => {
     if (onMessagesChange && messages !== initialMessages) {
