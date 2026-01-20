@@ -1,0 +1,1 @@
+export const MAX_PAGE_CONTENT_WORDS = 5000

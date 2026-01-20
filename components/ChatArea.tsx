@@ -79,7 +79,6 @@ export const ChatArea = memo(function ChatArea({
   initialScrollPosition = 0,
   onScrollPositionChange
 }: ChatAreaProps) {
-  console.log("🚀 ~ ChatArea ~ surroundingText:", surroundingText)
   const [messages, setMessages] = useState<Message[]>(initialMessages)
   console.log("🚀 ~ ChatArea ~ messages:", messages)
   const [input, setInput] = useState("")
@@ -204,27 +203,26 @@ export const ChatArea = memo(function ChatArea({
     setPlaceholderActive(false)
     setIsLoading(true)
     setStreamingContent("")
-    console.log("🚀 ~ ChatArea ~ initialMessages:", initialMessages)
-    console.log(messages, "messages")
 
     try {
       let fullStreamedContent = ""
+
+      const newMessages = [
+        ...messages,
+        {
+          role: "user" as const,
+          content: generateExplainRequestMessage({
+            selectedText: contextText,
+            surroundingText: surroundingText
+          })
+        }
+      ]
 
       await streamExplanation({
         selectedText: contextText,
         pageTitle,
         pageContent,
-        messages: [
-          ...messages,
-          {
-            role: "user" as const,
-            content: generateExplainRequestMessage({
-              selectedText: contextText,
-              surroundingText: surroundingText
-            })
-          }
-        ],
-        //   messages: [],
+        messages: newMessages,
 
         mode: "explain",
         quotedText: quotedText,
@@ -233,10 +231,10 @@ export const ChatArea = memo(function ChatArea({
           setStreamingContent(fullStreamedContent)
         },
         onComplete: () => {
-          const newMessages = [
+          const newMsgs = [
             { role: "assistant" as const, content: fullStreamedContent }
           ]
-          setMessages(newMessages)
+          setMessages(newMsgs)
           setStreamingContent("")
           setIsLoading(false)
         },
@@ -402,31 +400,34 @@ export const ChatArea = memo(function ChatArea({
         )}
 
         {/* Conversation Messages */}
-        {messages.map((message, index) => (
-          <div
-            key={index}
-            data-message="true"
-            data-role={message.role}
-            className={`flex ${
-              message.role === "user" ? "justify-end" : "justify-start"
-            }`}>
-            {message.role === "user" ? (
-              <div
-                className={`max-w-[85%] rounded-lg p-3 bg-gradient-to-r from-orange-400 to-red-500 text-white shadow-sm shadow-orange-500/20`}>
-                <div className={`whitespace-pre-wrap ${textSize}`}>
-                  {message.content}
+        {messages.map((message, index) => {
+          console.log("initial messages", initialMessages)
+          return (
+            <div
+              key={index}
+              data-message="true"
+              data-role={message.role}
+              className={`flex ${
+                message.role === "user" ? "justify-end" : "justify-start"
+              }`}>
+              {message.role === "user" ? (
+                <div
+                  className={`max-w-[85%] rounded-lg p-3 bg-gradient-to-r from-orange-400 to-red-500 text-white shadow-sm shadow-orange-500/20`}>
+                  <div className={`whitespace-pre-wrap ${textSize}`}>
+                    {message.content}
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div
-                className={`prose prose-slate ${compact ? "prose-xs" : "prose-sm"} max-w-none w-full bg-white rounded-xl ${padding}`}
-                dangerouslySetInnerHTML={{
-                  __html: marked(message.content) as string
-                }}
-              />
-            )}
-          </div>
-        ))}
+              ) : (
+                <div
+                  className={`prose prose-slate ${compact ? "prose-xs" : "prose-sm"} max-w-none w-full bg-white rounded-xl ${padding}`}
+                  dangerouslySetInnerHTML={{
+                    __html: marked(message.content) as string
+                  }}
+                />
+              )}
+            </div>
+          )
+        })}
 
         {/* Streaming Message */}
         {isLoading && streamingContent && (

@@ -2,6 +2,9 @@
  * Centralized AI prompts for reading extension
  */
 
+import { MAX_PAGE_CONTENT_WORDS } from "~constants"
+import { truncateByWords } from "~lib/utils"
+
 /**
  * Generate prompt for explaining selected text based on page context
  */
@@ -15,6 +18,11 @@ export function generateExplainPrompt(params: {
     return `Tiếp tục giải thích dựa trên cuộc trò chuyện trước đó. Hãy trả lời ngắn gọn, súc tích và hữu ích.`
   }
 
+  const truncatedContent = truncateByWords(
+    params.pageContent,
+    MAX_PAGE_CONTENT_WORDS
+  )
+
   return `Bạn là một chuyên gia phân tích và giải thích nội dung văn bản. Người dùng đang đọc một trang web và muốn hiểu rõ hơn về một đoạn nội dung cụ thể đã được chọn.
 
 **Trang web:** ${params.pageTitle}
@@ -23,7 +31,7 @@ export function generateExplainPrompt(params: {
 "${params.selectedText}"
 
 **Ngữ cảnh của trang (để tham khảo):**
-${params.pageContent.slice(0, 3000)}${params.pageContent.length > 3000 ? "..." : ""}
+${truncatedContent}
 
 Hãy giải thích đoạn text được chọn bằng tiếng Việt một cách:
 - **Rõ ràng và dễ hiểu**: Giải thích theo cách mà người không chuyên có thể hiểu được
@@ -54,6 +62,11 @@ export function generateQuotePrompt(params: {
           .join("\n")}`
       : ""
 
+  const truncatedContent = truncateByWords(
+    params.pageContent,
+    MAX_PAGE_CONTENT_WORDS
+  )
+
   return `Bạn là một trợ lý AI thông minh. Người dùng đang đọc một trang web và đã chọn (quote) một đoạn text cụ thể để hỏi về nó.
 
 **Trang web:** ${params.pageTitle}
@@ -62,7 +75,7 @@ export function generateQuotePrompt(params: {
 "${params.quotedText}"
 
 **Ngữ cảnh của trang (để tham khảo):**
-${params.pageContent.slice(0, 2000)}${params.pageContent.length > 2000 ? "..." : ""}
+${truncatedContent}
 ${historyContext}
 
 **Câu hỏi của người dùng về đoạn text được quote:**
