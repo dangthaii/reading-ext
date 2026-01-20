@@ -96,3 +96,27 @@ Luôn trả lời bằng tiếng Việt và sử dụng markdown để format.`
 export function generateFollowUpPrompt(): string {
   return `Tiếp tục trả lời dựa trên cuộc trò chuyện trước đó. Hãy trả lời ngắn gọn, súc tích và hữu ích.`
 }
+
+/**
+ * Generate the initial explain request message with selected text and surrounding context.
+ * This is the user message sent to the AI to request an explanation.
+ */
+export function generateExplainRequestMessage(params: {
+  selectedText: string
+  surroundingText?: string
+}): string {
+  const { selectedText, surroundingText } = params
+
+  if (surroundingText && surroundingText.trim() !== selectedText.trim()) {
+    return `Hãy giải thích đoạn text sau:
+
+"${selectedText}"
+
+Ngữ cảnh xung quanh đoạn text được chọn:
+"${surroundingText}"`
+  }
+
+  return `Hãy giải thích đoạn text sau:
+
+"${selectedText}"`
+}

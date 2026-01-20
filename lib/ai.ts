@@ -34,6 +34,7 @@ export async function streamExplanation(params: StreamExplanationParams) {
     onComplete,
     onError
   } = params
+  console.log("🚀 ~ streamExplanation ~ messages:", messages)
 
   try {
     // Set up message listener for responses from background script

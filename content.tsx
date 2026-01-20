@@ -89,6 +89,50 @@ interface PageContext {
 const ReadingExtension = () => {
   const [selectedText, setSelectedText] = useState<string | null>(null)
   const [selectionRange, setSelectionRange] = useState<Range | null>(null)
+  const [surroundingText, setSurroundingText] = useState<string | null>(null)
+
+  // Extract surrounding text from selection (about 1 sentence around selected text)
+  const getSurroundingText = useCallback((range: Range): string => {
+    try {
+      // Get the container element
+      const container = range.commonAncestorContainer
+      const parentElement =
+        container.nodeType === Node.TEXT_NODE
+          ? container.parentElement
+          : (container as HTMLElement)
+
+      if (!parentElement) return ""
+
+      // Get full text content of the parent element
+      const fullText = parentElement.textContent || ""
+      const selectedStr = range.toString()
+
+      // Find the position of selected text in full text
+      const startIndex = fullText.indexOf(selectedStr)
+      if (startIndex === -1) return ""
+
+      // Get ~100 characters before and after for context (roughly 1 sentence)
+      const contextBefore = 100
+      const contextAfter = 100
+
+      const surroundStart = Math.max(0, startIndex - contextBefore)
+      const surroundEnd = Math.min(
+        fullText.length,
+        startIndex + selectedStr.length + contextAfter
+      )
+
+      let surrounding = fullText.slice(surroundStart, surroundEnd).trim()
+
+      // Add ellipsis if we truncated
+      if (surroundStart > 0) surrounding = "..." + surrounding
+      if (surroundEnd < fullText.length) surrounding = surrounding + "..."
+
+      return surrounding
+    } catch (error) {
+      console.error("Error getting surrounding text:", error)
+      return ""
+    }
+  }, [])
 
   // Use Floating UI for positioning
   const { refs, floatingStyles } = useFloating({
@@ -165,8 +209,10 @@ const ReadingExtension = () => {
         const text = sel?.toString().trim()
 
         if (text && text.length > 0 && sel && sel.rangeCount > 0) {
-          setSelectionRange(sel.getRangeAt(0).cloneRange())
+          const range = sel.getRangeAt(0).cloneRange()
+          setSelectionRange(range)
           setSelectedText(text)
+          setSurroundingText(getSurroundingText(range))
         }
       }, 10)
     }
@@ -177,6 +223,7 @@ const ReadingExtension = () => {
         if (!text) {
           setSelectedText(null)
           setSelectionRange(null)
+          setSurroundingText(null)
         }
       }, 100)
     }
@@ -185,6 +232,7 @@ const ReadingExtension = () => {
       if (e.key === "Escape") {
         setSelectedText(null)
         setSelectionRange(null)
+        setSurroundingText(null)
       }
     }
 
@@ -214,6 +262,7 @@ const ReadingExtension = () => {
           type: "OPEN_SIDE_PANEL",
           data: {
             selectedText,
+            surroundingText: surroundingText || selectedText,
             pageTitle: pageContext.title,
             pageContent: pageContext.content
           }
@@ -221,6 +270,7 @@ const ReadingExtension = () => {
 
         setSelectedText(null)
         setSelectionRange(null)
+        setSurroundingText(null)
       }
     },
     [selectedText, parsePageContent]

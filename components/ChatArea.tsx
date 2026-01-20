@@ -2,6 +2,7 @@ import { marked } from "marked"
 import { memo, useCallback, useEffect, useRef, useState } from "react"
 
 import { streamExplanation } from "~lib/ai"
+import { generateExplainRequestMessage } from "~prompts"
 
 import { SelectionPopup } from "./SelectionPopup"
 
@@ -22,6 +23,7 @@ interface ChatAreaProps {
 
   // Context data
   selectedText: string
+  surroundingText?: string
   pageTitle: string
   pageContent: string
 
@@ -30,8 +32,8 @@ interface ChatAreaProps {
   mode?: "explain" | "quote"
 
   // Selection handlers (optional - for enabling sub-panel creation)
-  onExplainSelection?: (text: string) => void
-  onQuoteSelection?: (text: string) => void
+  onExplainSelection?: (text: string, surroundingText: string) => void
+  onQuoteSelection?: (text: string, surroundingText: string) => void
 
   // Style customization
   compact?: boolean
@@ -58,6 +60,7 @@ interface ChatAreaProps {
 export const ChatArea = memo(function ChatArea({
   tabId,
   selectedText,
+  surroundingText,
   pageTitle,
   pageContent,
   quotedText,
@@ -76,7 +79,9 @@ export const ChatArea = memo(function ChatArea({
   initialScrollPosition = 0,
   onScrollPositionChange
 }: ChatAreaProps) {
+  console.log("🚀 ~ ChatArea ~ surroundingText:", surroundingText)
   const [messages, setMessages] = useState<Message[]>(initialMessages)
+  console.log("🚀 ~ ChatArea ~ messages:", messages)
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [streamingContent, setStreamingContent] = useState("")
@@ -199,6 +204,8 @@ export const ChatArea = memo(function ChatArea({
     setPlaceholderActive(false)
     setIsLoading(true)
     setStreamingContent("")
+    console.log("🚀 ~ ChatArea ~ initialMessages:", initialMessages)
+    console.log(messages, "messages")
 
     try {
       let fullStreamedContent = ""
@@ -207,7 +214,18 @@ export const ChatArea = memo(function ChatArea({
         selectedText: contextText,
         pageTitle,
         pageContent,
-        messages: [],
+        messages: [
+          ...messages,
+          {
+            role: "user" as const,
+            content: generateExplainRequestMessage({
+              selectedText: contextText,
+              surroundingText: surroundingText
+            })
+          }
+        ],
+        //   messages: [],
+
         mode: "explain",
         quotedText: quotedText,
         onChunk: (text) => {

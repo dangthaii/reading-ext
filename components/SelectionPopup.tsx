@@ -2,8 +2,8 @@ import { flip, offset, shift, useFloating } from "@floating-ui/react"
 import { memo, useCallback, useEffect, useState } from "react"
 
 interface SelectionPopupProps {
-  onExplain: (selectedText: string) => void
-  onQuote: (selectedText: string) => void
+  onExplain: (selectedText: string, surroundingText: string) => void
+  onQuote: (selectedText: string, surroundingText: string) => void
   onQuoteInPlace?: (selectedText: string) => void
   containerRef: React.RefObject<HTMLDivElement>
 }
@@ -16,6 +16,43 @@ export const SelectionPopup = memo(function SelectionPopup({
 }: SelectionPopupProps) {
   const [isVisible, setIsVisible] = useState(false)
   const [selectedText, setSelectedText] = useState("")
+  const [surroundingText, setSurroundingText] = useState("")
+
+  // Extract surrounding text from selection (about 1 sentence around selected text)
+  const getSurroundingText = useCallback((range: Range): string => {
+    try {
+      const container = range.commonAncestorContainer
+      const parentElement =
+        container.nodeType === Node.TEXT_NODE
+          ? container.parentElement
+          : (container as HTMLElement)
+
+      if (!parentElement) return ""
+
+      const fullText = parentElement.textContent || ""
+      const selectedStr = range.toString()
+      const startIndex = fullText.indexOf(selectedStr)
+      if (startIndex === -1) return ""
+
+      // Get ~100 characters before and after
+      const contextBefore = 100
+      const contextAfter = 100
+      const surroundStart = Math.max(0, startIndex - contextBefore)
+      const surroundEnd = Math.min(
+        fullText.length,
+        startIndex + selectedStr.length + contextAfter
+      )
+
+      let surrounding = fullText.slice(surroundStart, surroundEnd).trim()
+      if (surroundStart > 0) surrounding = "..." + surrounding
+      if (surroundEnd < fullText.length) surrounding = surrounding + "..."
+
+      return surrounding
+    } catch (error) {
+      console.error("Error getting surrounding text:", error)
+      return ""
+    }
+  }, [])
 
   const { refs, floatingStyles, update } = useFloating({
     placement: "top",
@@ -53,6 +90,7 @@ export const SelectionPopup = memo(function SelectionPopup({
             const rect = range.getBoundingClientRect()
             updatePosition(rect)
             setSelectedText(text)
+            setSurroundingText(getSurroundingText(range))
             setIsVisible(true)
           }
         } else {
@@ -89,7 +127,7 @@ export const SelectionPopup = memo(function SelectionPopup({
 
   const handleExplain = () => {
     if (selectedText) {
-      onExplain(selectedText)
+      onExplain(selectedText, surroundingText || selectedText)
       setIsVisible(false)
       window.getSelection()?.removeAllRanges()
     }
@@ -97,7 +135,7 @@ export const SelectionPopup = memo(function SelectionPopup({
 
   const handleQuote = () => {
     if (selectedText) {
-      onQuote(selectedText)
+      onQuote(selectedText, surroundingText || selectedText)
       setIsVisible(false)
       window.getSelection()?.removeAllRanges()
     }

@@ -7,6 +7,7 @@ import "~style.css"
 
 interface PanelData {
   selectedText: string
+  surroundingText: string
   pageTitle: string
   pageContent: string
 }
@@ -17,6 +18,7 @@ interface TabData {
   label: string
   context: {
     selectedText: string
+    surroundingText: string
     pageTitle: string
     pageContent: string
     parentMessages: Message[]
@@ -32,6 +34,7 @@ interface TabData {
 function SidePanel() {
   const [panelData, setPanelData] = useState<PanelData | null>(null)
   const [tabs, setTabs] = useState<TabData[]>([])
+  console.log("🚀 ~ SidePanel ~ tabs:", tabs)
   const [activeTabId, setActiveTabId] = useState<string>("main")
 
   // Listen for panel data from background script
@@ -47,6 +50,8 @@ function SidePanel() {
             label: "Main",
             context: {
               selectedText: message.data.selectedText,
+              surroundingText:
+                message.data.surroundingText || message.data.selectedText,
               pageTitle: message.data.pageTitle,
               pageContent: message.data.pageContent,
               parentMessages: []
@@ -73,6 +78,8 @@ function SidePanel() {
             label: "Main",
             context: {
               selectedText: response.data.selectedText,
+              surroundingText:
+                response.data.surroundingText || response.data.selectedText,
               pageTitle: response.data.pageTitle,
               pageContent: response.data.pageContent,
               parentMessages: []
@@ -145,7 +152,11 @@ function SidePanel() {
 
   // Create a new tab (explain or quote)
   const handleCreateTab = useCallback(
-    (type: "explain" | "quote", quotedText: string) => {
+    (
+      type: "explain" | "quote",
+      quotedText: string,
+      surroundingText: string
+    ) => {
       if (!panelData) return
 
       // Use setTabs with functional update to get latest state
@@ -160,6 +171,7 @@ function SidePanel() {
           label: type === "explain" ? "Explain" : "Quote",
           context: {
             selectedText: quotedText,
+            surroundingText: surroundingText, // Use the surrounding text from selection
             pageTitle: panelData.pageTitle,
             pageContent: panelData.pageContent,
             parentMessages: parentMessages
@@ -198,17 +210,17 @@ function SidePanel() {
 
   // Handle explain selection
   const handleExplainSelection = useCallback(
-    (text: string) => {
+    (text: string, surroundingText: string) => {
       console.log("hello")
-      handleCreateTab("explain", text)
+      handleCreateTab("explain", text, surroundingText)
     },
     [handleCreateTab]
   )
 
   // Handle quote selection
   const handleQuoteSelection = useCallback(
-    (text: string) => {
-      handleCreateTab("quote", text)
+    (text: string, surroundingText: string) => {
+      handleCreateTab("quote", text, surroundingText)
     },
     [handleCreateTab]
   )
@@ -240,6 +252,7 @@ function SidePanel() {
               // Remove key to prevent re-mount, instead use tabId prop
               tabId={activeTab.id}
               selectedText={activeTab.context.selectedText}
+              surroundingText={activeTab.context.surroundingText}
               pageTitle={activeTab.context.pageTitle}
               pageContent={getPageContentWithContext(activeTab)}
               quotedText={activeTab.quotedText}
