@@ -87,10 +87,6 @@ export function normalizeApiKey(value: unknown): string | null {
     // Try to clean it by removing non-ASCII characters
     const cleaned = result.replace(/[^\x20-\x7E]/g, "")
     if (cleaned && cleaned.length > 10) {
-      console.log(
-        "[normalizeApiKey] Cleaned API key, new length:",
-        cleaned.length
-      )
       return cleaned
     }
 

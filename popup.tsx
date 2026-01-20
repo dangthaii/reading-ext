@@ -57,11 +57,9 @@ function IndexPopup() {
     }
 
     const trimmedKey = inputValue.trim()
-    console.log("[Popup] Saving API key, length:", trimmedKey.length)
     setIsLoading(true)
     try {
       await setApiKey(trimmedKey)
-      console.log("[Popup] API key saved successfully")
 
       // Verify it was saved
       let savedKey = normalizeApiKey(
@@ -80,7 +78,6 @@ function IndexPopup() {
         savedKey = normalizeApiKey(syncResult[STORAGE_KEYS.GOOGLE_API_KEY])
       }
 
-      console.log("[Popup] Verified saved key length:", savedKey?.length)
       setIsSaved(Boolean(savedKey))
       if (!savedKey) {
         console.error("[Popup] API key not found after saving")

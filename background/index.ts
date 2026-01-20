@@ -29,9 +29,7 @@ interface StreamExplanationRequest {
 
 // Watch for changes to keep local cache updated (optional, but good for debugging)
 storage.watch({
-  [STORAGE_KEYS.GOOGLE_API_KEY]: (c) => {
-    console.log("[Background] API Key updated:", c.newValue ? "Yes" : "No")
-  }
+  [STORAGE_KEYS.GOOGLE_API_KEY]: (c) => {}
 })
 
 // Note: We don't set openPanelOnActionClick: true because we want the popup to open on action click
@@ -65,7 +63,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       chrome.sidePanel
         .open({ tabId })
         .then(() => {
-          console.log("[Background] Side panel opened for tab:", tabId)
           // Send data to side panel after a short delay to ensure it's loaded
           setTimeout(() => {
             chrome.runtime.sendMessage({
@@ -93,14 +90,6 @@ async function handleStreamExplanation(
   tabId?: number,
   isFromSidePanel: boolean = false
 ) {
-  console.log("[Background] handleStreamExplanation called", {
-    tabId,
-    isFromSidePanel,
-    mode: data.mode,
-    hasQuotedText: !!data.quotedText,
-    messagesCount: data.messages?.length
-  })
-
   // If not from side panel and no tabId, we can't send response
   if (!isFromSidePanel && !tabId) {
     console.error("[Background] No tab ID provided and not from side panel")
@@ -111,7 +100,6 @@ async function handleStreamExplanation(
     // Debug: Check raw storage
     if (chrome?.storage?.local) {
       const all = await chrome.storage.local.get(null)
-      console.log("[Background] Raw chrome.storage.local content:", all)
     }
 
     // Get API key from Plasmo storage
@@ -133,11 +121,6 @@ async function handleStreamExplanation(
       apiKey = normalizeApiKey(syncResult[STORAGE_KEYS.GOOGLE_API_KEY])
     }
 
-    console.log(
-      "[Background] API key retrieved:",
-      apiKey ? "Yes (length: " + apiKey.length + ")" : "No"
-    )
-
     if (!apiKey) {
       throw new Error(
         "Google API key not configured. Please set it in the extension settings."
@@ -148,7 +131,6 @@ async function handleStreamExplanation(
     const google = createGoogleGenerativeAI({
       apiKey
     })
-    console.log("[Background] Google AI provider created")
 
     const {
       selectedText,
@@ -161,14 +143,6 @@ async function handleStreamExplanation(
     } = data
     const isFollowUp = messages.length > 0
 
-    console.log("[Background] Processing request:", {
-      mode,
-      isFollowUp,
-      selectedTextLength: selectedText?.length,
-      quotedTextLength: quotedText?.length,
-      inlineQuote: !!inlineQuote
-    })
-
     // Build messages array for the AI
     const aiMessages: Array<{ role: "user" | "assistant"; content: string }> =
       []
@@ -179,9 +153,6 @@ async function handleStreamExplanation(
         // First message in quote mode - need user's question from the last message
         // This shouldn't happen normally since quote mode waits for user input
         // But handle it gracefully
-        console.log(
-          "[Background] Quote mode but no messages - waiting for user input"
-        )
         return
       }
 
@@ -242,10 +213,6 @@ async function handleStreamExplanation(
       }
     }
 
-    // Stream with Vercel AI SDK
-    console.log(
-      "[Background] Starting streamText with model: gemini-3-flash-preview"
-    )
     const streamResult = await streamText({
       model: google("gemini-3-flash-preview"),
       system: READING_ASSISTANT_SYSTEM_PROMPT,
@@ -258,7 +225,6 @@ async function handleStreamExplanation(
         }
       }
     })
-    console.log("[Background] streamText initiated, processing stream...")
 
     // Helper to safely send messages (handles disconnected tabs/panels)
     const safeSendMessage = (message: object) => {
@@ -288,13 +254,11 @@ async function handleStreamExplanation(
         data: textPart
       })
     }
-    console.log("[Background] Stream complete, total chunks:", chunkCount)
 
     // Send completion message
     safeSendMessage({
       type: "AI_COMPLETE"
     })
-    console.log("[Background] AI_COMPLETE sent")
   } catch (error) {
     console.error("[Background] Error in background script:", error)
     console.error("[Background] Error details:", {

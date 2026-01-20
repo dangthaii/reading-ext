@@ -152,16 +152,7 @@ function SidePanel() {
       setTabs((prevTabs) => {
         const currentActiveTab = prevTabs.find((t) => t.id === activeTabId)
         const parentMessages = currentActiveTab?.messages || []
-
-        console.log("[SidePanel] Creating new tab with parentMessages:", {
-          type,
-          quotedText: quotedText.slice(0, 50),
-          parentMessagesCount: parentMessages.length,
-          parentMessages: parentMessages.map((m) => ({
-            role: m.role,
-            contentPreview: m.content.slice(0, 50)
-          }))
-        })
+        console.log("🚀 ~ SidePanel ~ parentMessages:", parentMessages)
 
         const newTab: TabData = {
           id: `tab-${Date.now()}`,
@@ -208,6 +199,7 @@ function SidePanel() {
   // Handle explain selection
   const handleExplainSelection = useCallback(
     (text: string) => {
+      console.log("hello")
       handleCreateTab("explain", text)
     },
     [handleCreateTab]
