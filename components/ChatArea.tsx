@@ -1,10 +1,38 @@
-import { marked } from "marked"
+import hljs from "highlight.js"
+
+import "highlight.js/styles/github-dark.css"
+
+import { Marked } from "marked"
+import { markedHighlight } from "marked-highlight"
 import { memo, useCallback, useEffect, useRef, useState } from "react"
 
 import { streamExplanation } from "~lib/ai"
 import { generateExplainRequestMessage } from "~prompts"
 
 import { SelectionPopup } from "./SelectionPopup"
+
+// Create marked instance with highlight.js
+const marked = new Marked(
+  markedHighlight({
+    langPrefix: "hljs language-",
+    highlight(code, lang) {
+      if (lang && hljs.getLanguage(lang)) {
+        try {
+          return hljs.highlight(code, { language: lang }).value
+        } catch (err) {
+          console.error("Highlight error:", err)
+        }
+      }
+      // Use auto-detection if no language specified
+      try {
+        return hljs.highlightAuto(code).value
+      } catch (err) {
+        console.error("Highlight auto error:", err)
+      }
+      return code
+    }
+  })
+)
 
 interface Message {
   role: "user" | "assistant"
@@ -421,7 +449,7 @@ export const ChatArea = memo(function ChatArea({
                 <div
                   className={`prose prose-slate ${compact ? "prose-xs" : "prose-sm"} max-w-none w-full bg-white rounded-xl ${padding}`}
                   dangerouslySetInnerHTML={{
-                    __html: marked(message.content) as string
+                    __html: marked.parse(message.content) as string
                   }}
                 />
               )}
@@ -438,7 +466,7 @@ export const ChatArea = memo(function ChatArea({
             <div
               className={`prose prose-slate ${compact ? "prose-xs" : "prose-sm"} max-w-none w-full bg-white rounded-xl ${padding} shadow-sm`}
               dangerouslySetInnerHTML={{
-                __html: marked(streamingContent) as string
+                __html: marked.parse(streamingContent) as string
               }}
             />
           </div>

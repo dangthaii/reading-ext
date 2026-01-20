@@ -13,3 +13,56 @@ body {
   font-family: "Lora", serif;
   font-size: 20px;
 }
+
+/* Code blocks styling for markdown */
+.prose pre {
+  background: #0d1117 !important;
+  border-radius: 12px !important;
+  padding: 1rem !important;
+  margin: 1rem 0 !important;
+  overflow-x: auto !important;
+  border: 1px solid #30363d !important;
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -2px rgba(0, 0, 0, 0.1) !important;
+}
+
+.prose pre code {
+  font-family: "JetBrains Mono", "Fira Code", "SF Mono", Consolas,
+    "Liberation Mono", Menlo, monospace !important;
+  font-size: 13px !important;
+  line-height: 1.6 !important;
+  background: transparent !important;
+  padding: 0 !important;
+  color: #e6edf3 !important;
+}
+
+/* Inline code styling */
+.prose code:not(pre code) {
+  background: #f1f5f9 !important;
+  color: #e11d48 !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+  font-family: "JetBrains Mono", "Fira Code", "SF Mono", Consolas, monospace !important;
+  font-size: 0.875em !important;
+  font-weight: 500 !important;
+}
+
+/* Code scrollbar styling */
+.prose pre::-webkit-scrollbar {
+  height: 6px;
+}
+
+.prose pre::-webkit-scrollbar-track {
+  background: #21262d;
+  border-radius: 3px;
+}
+
+.prose pre::-webkit-scrollbar-thumb {
+  background: #484f58;
+  border-radius: 3px;
+}
+
+.prose pre::-webkit-scrollbar-thumb:hover {
+  background: #6e7681;
+}
